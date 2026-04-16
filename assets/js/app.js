@@ -533,6 +533,40 @@ function renderDotd(dotdData) {
   `).join("");
 }
 
+// ── CARD TAPS (mobile hover fallback) ────────────────────────────────────────
+function initCardTaps() {
+  // Event delegation per container — works even after dynamic render
+  function setupContainer(containerId, cardSel) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.addEventListener("click", e => {
+      const card = e.target.closest(cardSel);
+      // Tap outside a card → close all in this container
+      if (!card) {
+        container.querySelectorAll(`${cardSel}.active`)
+          .forEach(c => c.classList.remove("active"));
+        return;
+      }
+      e.stopPropagation();
+      const isActive = card.classList.contains("active");
+      // Close any other open card first
+      container.querySelectorAll(`${cardSel}.active`)
+        .forEach(c => c.classList.remove("active"));
+      if (!isActive) card.classList.add("active");
+    });
+  }
+
+  setupContainer("pilots-grid",   ".pilot-card");
+  setupContainer("teams-grid-f1", ".team-card");
+  setupContainer("teams-grid-f2", ".team-card");
+
+  // Tap anywhere outside grids closes all active cards
+  document.addEventListener("click", () => {
+    document.querySelectorAll(".pilot-card.active, .team-card.active")
+      .forEach(c => c.classList.remove("active"));
+  });
+}
+
 // ── TABS ──────────────────────────────────────────────────────────────────────
 function initTabs() {
   document.querySelectorAll(".tab-btn").forEach(btn => {
@@ -600,6 +634,7 @@ function setError() {
 async function init() {
   initNavbar();
   initTabs();
+  initCardTaps();
   setLoading();
 
   if (!GKD_API_URL || GKD_API_URL.includes("YOUR_APPS_SCRIPT")) {
@@ -633,6 +668,7 @@ async function init() {
     // Pilots & Teams
     renderPilots(data.inscritos);
     renderTeams(data.equipos_f1, data.equipos_f2);
+    initCardTaps();
 
     // Build pilot → escudería lookup from Equipos for podium badges
     const escuderiaMap = {};
