@@ -1,0 +1,1007 @@
+/* ═══════════════════════════════════════════════════════════════
+   GKD Championship 2026 — Main Stylesheet
+   Design: dark racing theme with red + gold GKD accents
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Inter:wght@300;400;500;600&display=swap');
+
+/* ── Variables ── */
+:root {
+  --bg:          #0a0a0e;
+  --bg-card:     #12141a;
+  --bg-card-2:   #1a1d26;
+  --border:      rgba(255,255,255,0.07);
+  --red:         #E8192C;
+  --gold:        #C9A84C;
+  --gold-light:  #e8c56b;
+  --white:       #f0f0f0;
+  --gray:        #8a8f9e;
+  --gray-light:  #c0c4d0;
+  --nav-h:       64px;
+
+  /* podium */
+  --gold-row:    rgba(201,168,76,0.15);
+  --silver-row:  rgba(192,192,192,0.10);
+  --bronze-row:  rgba(180,100,40,0.12);
+  --gold-badge:   #C9A84C;
+  --silver-badge: #A8A8A8;
+  --bronze-badge: #CD7F32;
+}
+
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; font-size: 16px; }
+body {
+  background: var(--bg);
+  color: var(--white);
+  font-family: 'Inter', sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+img { display: block; max-width: 100%; }
+a  { color: inherit; text-decoration: none; }
+button { cursor: pointer; border: none; background: none; }
+
+/* ── Utility ── */
+.container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+.section    { padding: 80px 0; }
+.section-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+.section-subtitle {
+  color: var(--gray);
+  font-size: 0.95rem;
+  margin-bottom: 40px;
+}
+.section-header { margin-bottom: 40px; }
+.accent  { color: var(--red); }
+.gold    { color: var(--gold); }
+.tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: rgba(232,25,44,0.15);
+  color: var(--red);
+  border: 1px solid rgba(232,25,44,0.3);
+  border-radius: 4px;
+  padding: 2px 8px;
+  margin-bottom: 10px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NAVBAR
+   ═══════════════════════════════════════════════════════════════ */
+.navbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--nav-h);
+  background: rgba(10,10,14,0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+}
+.navbar .container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+.navbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.navbar-logo img { height: 36px; width: auto; }
+.navbar-logo-text {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--white);
+  line-height: 1.1;
+}
+.navbar-logo-text span { color: var(--red); }
+.navbar-links {
+  display: flex;
+  gap: 32px;
+  list-style: none;
+}
+.navbar-links a {
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gray-light);
+  transition: color 0.2s;
+}
+.navbar-links a:hover { color: var(--white); }
+.navbar-links a.active { color: var(--red); }
+
+.navbar-burger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  padding: 4px;
+}
+.navbar-burger span {
+  display: block;
+  width: 24px;
+  height: 2px;
+  background: var(--white);
+  border-radius: 2px;
+  transition: all 0.3s;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HERO
+   ═══════════════════════════════════════════════════════════════ */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+  padding: calc(var(--nav-h) + 40px) 24px 60px;
+  position: relative;
+  overflow: hidden;
+}
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(232,25,44,0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 80% 80%, rgba(201,168,76,0.06) 0%, transparent 55%);
+  pointer-events: none;
+}
+.hero-grid-lines {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+}
+.hero-logo {
+  width: clamp(100px, 20vw, 160px);
+  margin: 0 auto 28px;
+  filter: drop-shadow(0 0 40px rgba(232,25,44,0.4));
+  animation: float 4s ease-in-out infinite;
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0);    }
+  50%       { transform: translateY(-8px); }
+}
+.hero-eyebrow {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--red);
+  margin-bottom: 12px;
+}
+.hero-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(2.2rem, 6vw, 4.5rem);
+  font-weight: 900;
+  line-height: 1.05;
+  margin-bottom: 16px;
+}
+.hero-title .line2 { color: var(--gold); }
+.hero-sub {
+  font-size: 1rem;
+  color: var(--gray);
+  margin-bottom: 40px;
+}
+
+/* Countdown */
+.countdown {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  margin-bottom: 48px;
+}
+.countdown-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  min-width: 72px;
+}
+.countdown-num {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--white);
+  line-height: 1;
+}
+.countdown-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gray);
+  margin-top: 6px;
+}
+.countdown-sep {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2rem;
+  color: var(--red);
+  line-height: 1;
+  padding-top: 14px;
+}
+.next-race-label {
+  font-size: 0.8rem;
+  color: var(--gray);
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+.next-race-date {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1rem;
+  color: var(--gold);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+/* Hero scroll hint */
+.hero-scroll {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--gray);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  animation: bounce 2s ease-in-out infinite;
+}
+.hero-scroll svg { width: 20px; height: 20px; }
+@keyframes bounce {
+  0%, 100% { transform: translateX(-50%) translateY(0);    }
+  50%       { transform: translateX(-50%) translateY(6px); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PILOTOS GRID
+   ═══════════════════════════════════════════════════════════════ */
+.pilots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+.pilot-card {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  cursor: default;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+.pilot-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 12px 40px rgba(232,25,44,0.25);
+  border-color: rgba(232,25,44,0.4);
+}
+.pilot-card img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s;
+}
+.pilot-card:hover img { transform: scale(1.08); }
+.pilot-placeholder {
+  width: 100%; height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--white);
+  background: linear-gradient(135deg, #1a1d26, #12141a);
+}
+.pilot-overlay {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.85) 60%);
+  padding: 32px 12px 12px;
+  transform: translateY(100%);
+  transition: transform 0.3s;
+}
+.pilot-card:hover .pilot-overlay { transform: translateY(0); }
+.pilot-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--white);
+}
+.pilot-fullname {
+  font-size: 0.68rem;
+  color: var(--gray-light);
+  margin-top: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TEAMS
+   ═══════════════════════════════════════════════════════════════ */
+.teams-category {
+  margin-bottom: 56px;
+}
+.teams-category-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.teams-category-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--gold), transparent);
+  opacity: 0.3;
+}
+.teams-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+.team-card {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  cursor: default;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+.team-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+}
+.team-card img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s;
+}
+.team-card:hover img { transform: scale(1.06); }
+.team-color-bar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+}
+.team-placeholder {
+  width: 100%; height: 100%;
+  display: flex;
+  align-items: flex-end;
+  padding: 16px;
+}
+.team-escuderia-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--white);
+  text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+  line-height: 1.1;
+}
+.team-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.team-card:hover .team-overlay { opacity: 1; }
+.team-overlay-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: 8px;
+}
+.team-overlay-pilots {
+  font-size: 0.8rem;
+  color: var(--gray-light);
+  line-height: 1.5;
+}
+.team-escuderia-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  padding: 3px 8px;
+  margin-top: 8px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STANDINGS TABS
+   ═══════════════════════════════════════════════════════════════ */
+.tabs-wrapper {
+  position: relative;
+}
+.tabs-nav {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px 12px 0 0;
+  padding: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.tabs-nav::-webkit-scrollbar { display: none; }
+.tab-btn {
+  flex-shrink: 0;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gray);
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: var(--white); background: rgba(255,255,255,0.04); }
+.tab-btn.active {
+  background: var(--red);
+  color: var(--white);
+  box-shadow: 0 2px 12px rgba(232,25,44,0.35);
+}
+.tab-panel {
+  display: none;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  overflow: hidden;
+}
+.tab-panel.active { display: block; }
+
+/* ── Standings Table ── */
+.standings-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  min-width: 600px;
+}
+.standings-table th {
+  background: #0d0f15;
+  color: var(--gray);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.standings-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.standings-table tr:last-child td { border-bottom: none; }
+.standings-table tr:hover td { background: rgba(255,255,255,0.025); }
+
+/* podium rows */
+.standings-table tr.rank-1 td { background: var(--gold-row); }
+.standings-table tr.rank-2 td { background: var(--silver-row); }
+.standings-table tr.rank-3 td { background: var(--bronze-row); }
+.standings-table tr.rank-1:hover td { background: rgba(201,168,76,0.22); }
+.standings-table tr.rank-2:hover td { background: rgba(192,192,192,0.16); }
+.standings-table tr.rank-3:hover td { background: rgba(180,100,40,0.18); }
+
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.rank-badge.gold   { background: var(--gold-badge);   color: #000; }
+.rank-badge.silver { background: var(--silver-badge); color: #000; }
+.rank-badge.bronze { background: var(--bronze-badge); color: #fff; }
+.rank-badge.normal { background: rgba(255,255,255,0.08); color: var(--gray-light); }
+
+.pts-total {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--white);
+}
+.pts-small { font-size: 0.82rem; color: var(--gray-light); }
+.pos-cell  { color: var(--gray); font-size: 0.82rem; }
+.pos-cell.has-value { color: var(--white); }
+
+.constructor-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+.pilot-cell {
+  font-weight: 600;
+  color: var(--white);
+}
+
+.time-cell {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--gold-light);
+}
+.time-cell.best { color: #ff79c6; }
+
+/* Vuelta Rápida delta */
+.delta-pos { color: #50fa7b; }
+.delta-neg { color: var(--red); }
+.delta-neu { color: var(--gray); }
+
+/* Empty state */
+.table-empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--gray);
+  font-size: 0.9rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DOTD — Driver of the Day
+   ═══════════════════════════════════════════════════════════════ */
+.dotd-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  position: relative;
+  padding-left: 28px;
+}
+.dotd-timeline::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--red), var(--gold), transparent);
+  border-radius: 2px;
+}
+.dotd-card {
+  display: flex;
+  gap: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  position: relative;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.dotd-card:hover {
+  border-color: rgba(201,168,76,0.35);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+.dotd-card::before {
+  content: '';
+  position: absolute;
+  left: -24px;
+  top: 24px;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--gold);
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 8px rgba(201,168,76,0.6);
+}
+.dotd-photo {
+  flex-shrink: 0;
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 16px rgba(201,168,76,0.3);
+}
+.dotd-photo img { width: 100%; height: 100%; object-fit: cover; }
+.dotd-photo-placeholder {
+  width: 100%; height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #1a1d26, #0d0f15);
+  color: var(--gold);
+}
+.dotd-body { flex: 1; min-width: 0; }
+.dotd-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.dotd-date {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.dotd-category {
+  font-size: 0.68rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  background: rgba(232,25,44,0.15);
+  color: var(--red);
+  border: 1px solid rgba(232,25,44,0.25);
+}
+.dotd-pilot-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dotd-trophy {
+  font-size: 0.75rem;
+  color: var(--gray-light);
+  font-style: italic;
+  line-height: 1.5;
+}
+.dotd-award-icon {
+  font-size: 1.1rem;
+  margin-right: 4px;
+}
+.dotd-empty {
+  text-align: center;
+  padding: 56px 24px;
+  color: var(--gray);
+  font-size: 0.9rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LOADING & ERROR STATES
+   ═══════════════════════════════════════════════════════════════ */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 60px 24px;
+  color: var(--gray);
+}
+.spinner {
+  width: 36px; height: 36px;
+  border: 3px solid rgba(255,255,255,0.08);
+  border-top-color: var(--red);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.error-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--red);
+  font-size: 0.9rem;
+}
+
+/* Last updated badge */
+.last-updated {
+  text-align: right;
+  font-size: 0.72rem;
+  color: var(--gray);
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FOOTER
+   ═══════════════════════════════════════════════════════════════ */
+.footer {
+  border-top: 1px solid var(--border);
+  padding: 32px 0;
+  text-align: center;
+  color: var(--gray);
+  font-size: 0.82rem;
+}
+.footer img { height: 32px; margin: 0 auto 12px; }
+.footer a { color: var(--red); }
+
+/* ═══════════════════════════════════════════════════════════════
+   PODIUM — standings & race results
+   ═══════════════════════════════════════════════════════════════ */
+.podium-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 40px 24px 0;
+  margin-bottom: 24px;
+  /* prevent layout shift when empty */
+  min-height: 0;
+}
+.podium-wrap:empty { display: none; }
+
+.podium-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 200px;
+  position: relative;
+}
+
+/* pedestal heights — P2 left, P1 centre, P3 right */
+.podium-slot[data-pos="1"] { order: 2; }
+.podium-slot[data-pos="2"] { order: 1; }
+.podium-slot[data-pos="3"] { order: 3; }
+
+.podium-pedestal {
+  width: 100%;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2rem;
+  font-weight: 900;
+  color: rgba(255,255,255,0.18);
+}
+.podium-slot[data-pos="1"] .podium-pedestal { height: 90px; background: linear-gradient(180deg, rgba(201,168,76,0.25), rgba(201,168,76,0.08)); border: 1px solid rgba(201,168,76,0.35); border-bottom: none; }
+.podium-slot[data-pos="2"] .podium-pedestal { height: 65px; background: linear-gradient(180deg, rgba(192,192,192,0.2),  rgba(192,192,192,0.06)); border: 1px solid rgba(192,192,192,0.25); border-bottom: none; }
+.podium-slot[data-pos="3"] .podium-pedestal { height: 48px; background: linear-gradient(180deg, rgba(180,100,40,0.22),  rgba(180,100,40,0.07)); border: 1px solid rgba(180,100,40,0.28); border-bottom: none; }
+
+/* photo + logo container */
+.podium-img-wrap {
+  position: relative;
+  width: 90px;
+  height: 90px;
+}
+.podium-slot[data-pos="1"] .podium-img-wrap { width: 110px; height: 110px; }
+
+.podium-pilot-img {
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--border);
+  background: var(--bg-card-2);
+}
+.podium-slot[data-pos="1"] .podium-pilot-img { border-color: var(--gold); box-shadow: 0 0 24px rgba(201,168,76,0.45); }
+.podium-slot[data-pos="2"] .podium-pilot-img { border-color: #a8a8a8; box-shadow: 0 0 16px rgba(192,192,192,0.25); }
+.podium-slot[data-pos="3"] .podium-pilot-img { border-color: #cd7f32; box-shadow: 0 0 16px rgba(180,100,40,0.3); }
+
+/* team logo overlay (teams podium) */
+.podium-team-logo {
+  width: 100%; height: 100%;
+  border-radius: 12px;
+  object-fit: contain;
+  padding: 14px;
+  background: rgba(255,255,255,0.96);
+  border: 3px solid var(--border);
+}
+.podium-slot[data-pos="1"] .podium-team-logo { border-color: var(--gold); box-shadow: 0 0 24px rgba(201,168,76,0.45); }
+.podium-slot[data-pos="2"] .podium-team-logo { border-color: #a8a8a8; }
+.podium-slot[data-pos="3"] .podium-team-logo { border-color: #cd7f32; }
+
+/* pilot thumbnails under team logo */
+.podium-pilots-under {
+  display: flex;
+  gap: -8px;
+  justify-content: center;
+  margin-top: -4px;
+}
+.podium-pilot-thumb {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--bg-card);
+  margin-left: -8px;
+}
+.podium-pilot-thumb:first-child { margin-left: 0; }
+
+/* constructor glow — driven by --esc-color CSS var set inline */
+.podium-slot[style*="--esc-color"] {
+  position: relative;
+}
+.podium-slot[style*="--esc-color"]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: radial-gradient(ellipse 90% 50% at 50% 115%, var(--esc-color) 0%, transparent 65%);
+  opacity: 0.18;
+  pointer-events: none;
+  z-index: 0;
+}
+.podium-slot[style*="--esc-color"] > * { position: relative; z-index: 1; }
+
+/* text under photo */
+.podium-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--white);
+  text-align: center;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* constructor badge between name and pts */
+.podium-team-tag {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 20px;
+  padding: 2px 9px;
+  margin-top: 2px;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+}
+
+.podium-pts {
+  font-size: 0.72rem;
+  color: var(--gray-light);
+  text-align: center;
+  margin-top: 3px;
+}
+.podium-slot[data-pos="1"] .podium-pts { color: var(--gold); font-weight: 600; }
+
+/* position crown badge */
+.podium-pos-badge {
+  position: absolute;
+  bottom: -6px; right: -6px;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 900;
+  border: 2px solid var(--bg-card);
+}
+.podium-slot[data-pos="1"] .podium-pos-badge { background: var(--gold-badge);   color: #000; }
+.podium-slot[data-pos="2"] .podium-pos-badge { background: var(--silver-badge); color: #000; }
+.podium-slot[data-pos="3"] .podium-pos-badge { background: var(--bronze-badge); color: #fff; }
+
+/* placeholder initials circle */
+.podium-placeholder {
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--white);
+  background: linear-gradient(135deg, var(--bg-card-2), #0d0f15);
+}
+.podium-slot[data-pos="1"] .podium-placeholder { font-size: 1.7rem; }
+
+/* race results sub-heading separator */
+.race-sub-heading {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gold);
+  padding: 16px 24px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.race-sub-heading::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(201,168,76,0.4), transparent);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .section { padding: 60px 0; }
+
+  .navbar-links { display: none; gap: 16px; flex-direction: column; }
+  .navbar-links.open {
+    display: flex;
+    position: fixed;
+    top: var(--nav-h);
+    left: 0; right: 0;
+    background: rgba(10,10,14,0.97);
+    border-bottom: 1px solid var(--border);
+    padding: 24px;
+    backdrop-filter: blur(16px);
+  }
+  .navbar-burger { display: flex; }
+
+  .countdown { gap: 10px; }
+  .countdown-block { min-width: 56px; padding: 12px 14px; }
+  .countdown-num { font-size: 1.5rem; }
+
+  .pilots-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .teams-grid  { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+  .dotd-card { flex-direction: column; gap: 14px; }
+  .dotd-photo { width: 56px; height: 56px; }
+
+  .podium-slot { width: 130px; }
+  .podium-slot[data-pos="1"] .podium-img-wrap { width: 80px; height: 80px; }
+  .podium-img-wrap { width: 68px; height: 68px; }
+  .podium-slot[data-pos="1"] .podium-pedestal { height: 72px; }
+  .podium-slot[data-pos="2"] .podium-pedestal { height: 52px; }
+  .podium-slot[data-pos="3"] .podium-pedestal { height: 38px; }
+}
+
+@media (max-width: 480px) {
+  .pilots-grid { grid-template-columns: repeat(2, 1fr); }
+  .teams-grid  { grid-template-columns: 1fr; }
+  .countdown   { gap: 6px; }
+  .countdown-sep { display: none; }
+}
