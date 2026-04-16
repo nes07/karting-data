@@ -466,9 +466,10 @@ function raceResultsCategory(label, entries, raceIdx, cat) {
   const rest  = entries.slice(3);
 
   const podiumSlots = top3.map(e => podiumSlotDriver(e.pos, {
-    pilot: e.pilot,
-    pts:   e.pts,
-    rank:  e.pos,
+    pilot:     e.pilot,
+    escuderia: e.escuderia || "",
+    pts:       e.pts,
+    rank:      e.pos,
   })).join("");
 
   const restRows = rest.map(e => `
