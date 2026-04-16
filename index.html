@@ -51,9 +51,9 @@
   <div class="hero-bg"></div>
   <div class="hero-grid-lines"></div>
 
-  <!-- GIF animado; fallback al logo estático si no existe -->
+  <!-- GIF animado; fallback al logo estático; se oculta si ninguno existe -->
   <img class="hero-logo" src="assets/images/logo/gkd-animation.gif" alt="GKD"
-       onerror="this.src='assets/images/logo/gkd-logo.png'">
+       onerror="this.src='assets/images/logo/gkd-logo.png';this.onerror=function(){this.style.display='none'}">
 
   <p class="hero-eyebrow">Mundial de Karting 2026</p>
   <h1 class="hero-title">
