@@ -6,6 +6,17 @@
 /* ── Fonts ── */
 @import url('https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400&family=Inter:wght@300;400;500;600&display=swap');
 
+/* Self-hosted Microgramma D Extended Bold — place the .woff2 (and optionally .ttf)
+   in assets/fonts/ and it will automatically override the Exo 2 fallback below.   */
+@font-face {
+  font-family: 'Microgramma';
+  src: url('../fonts/microgramma-d-extended-bold.woff2') format('woff2'),
+       url('../fonts/microgramma-d-extended-bold.ttf')  format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ── Variables ── */
 :root {
   --bg:          #0a0a0e;
@@ -20,7 +31,7 @@
   --gray-light:  #c0c4d0;
   --nav-h:       64px;
 
-  --font-head: 'Exo 2', sans-serif;
+  --font-head: 'Microgramma', 'Microgramma', 'Exo 2', sans-serif;
   --font-body: 'Inter', sans-serif;
 
   /* podium */
@@ -50,7 +61,7 @@ button { cursor: pointer; border: none; background: none; }
 .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
 .section    { padding: 80px 0; }
 .section-title {
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: clamp(1.4rem, 3vw, 2rem);
   font-weight: 700;
   color: var(--white);
@@ -107,7 +118,7 @@ button { cursor: pointer; border: none; background: none; }
 }
 .navbar-logo img { height: 36px; width: auto; }
 .navbar-logo-text {
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--white);
@@ -195,7 +206,7 @@ button { cursor: pointer; border: none; background: none; }
   margin-bottom: 12px;
 }
 .hero-title {
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: clamp(2.2rem, 6vw, 4.5rem);
   font-weight: 900;
   line-height: 1.05;
@@ -226,7 +237,7 @@ button { cursor: pointer; border: none; background: none; }
   min-width: 72px;
 }
 .countdown-num {
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 2rem;
   font-weight: 700;
   color: var(--white);
@@ -241,7 +252,7 @@ button { cursor: pointer; border: none; background: none; }
   margin-top: 6px;
 }
 .countdown-sep {
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 2rem;
   color: var(--red);
   line-height: 1;
@@ -254,7 +265,7 @@ button { cursor: pointer; border: none; background: none; }
   letter-spacing: 0.05em;
 }
 .next-race-date {
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 1rem;
   color: var(--gold);
   font-weight: 600;
@@ -317,7 +328,7 @@ button { cursor: pointer; border: none; background: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 2rem;
   font-weight: 700;
   color: var(--white);
@@ -334,7 +345,7 @@ button { cursor: pointer; border: none; background: none; }
 .pilot-card:hover .pilot-overlay,
 .pilot-card.active .pilot-overlay { transform: translateY(0); }
 .pilot-name {
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -354,7 +365,7 @@ button { cursor: pointer; border: none; background: none; }
   margin-bottom: 56px;
 }
 .teams-category-title {
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -409,7 +420,7 @@ button { cursor: pointer; border: none; background: none; }
   padding: 16px;
 }
 .team-escuderia-label {
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -433,7 +444,7 @@ button { cursor: pointer; border: none; background: none; }
 .team-card:hover .team-overlay,
 .team-card.active .team-overlay { opacity: 1; }
 .team-overlay-name {
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--white);
@@ -477,7 +488,7 @@ button { cursor: pointer; border: none; background: none; }
   flex-shrink: 0;
   padding: 8px 18px;
   border-radius: 8px;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -516,7 +527,7 @@ button { cursor: pointer; border: none; background: none; }
 .standings-table th {
   background: #0d0f15;
   color: var(--gray);
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 0.65rem;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -549,7 +560,7 @@ button { cursor: pointer; border: none; background: none; }
   justify-content: center;
   width: 26px; height: 26px;
   border-radius: 50%;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -559,7 +570,7 @@ button { cursor: pointer; border: none; background: none; }
 .rank-badge.normal { background: rgba(255,255,255,0.08); color: var(--gray-light); }
 
 .pts-total {
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 1rem;
   font-weight: 700;
   color: var(--white);
@@ -582,7 +593,7 @@ button { cursor: pointer; border: none; background: none; }
 }
 
 .time-cell {
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--gold-light);
@@ -661,7 +672,7 @@ button { cursor: pointer; border: none; background: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 1.3rem;
   font-weight: 700;
   background: linear-gradient(135deg, #1a1d26, #0d0f15);
@@ -693,7 +704,7 @@ button { cursor: pointer; border: none; background: none; }
   border: 1px solid rgba(232,25,44,0.25);
 }
 .dotd-pilot-name {
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--white);
@@ -802,7 +813,7 @@ button { cursor: pointer; border: none; background: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 2rem;
   font-weight: 900;
   color: rgba(255,255,255,0.18);
@@ -877,7 +888,7 @@ button { cursor: pointer; border: none; background: none; }
 
 /* text under photo */
 .podium-name {
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 0.75rem;
   font-weight: 700;
   color: var(--white);
@@ -923,7 +934,7 @@ button { cursor: pointer; border: none; background: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 0.65rem;
   font-weight: 900;
   border: 2px solid var(--bg-card);
@@ -939,7 +950,7 @@ button { cursor: pointer; border: none; background: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 1.4rem;
   font-weight: 700;
   color: var(--white);
@@ -949,7 +960,7 @@ button { cursor: pointer; border: none; background: none; }
 
 /* race results sub-heading separator */
 .race-sub-heading {
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.15em;

@@ -291,7 +291,7 @@ function podiumSlotTeam(pos, t) {
              onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
         <div class="podium-placeholder" style="display:none;background:${c.bg};border-radius:12px;
              font-size:0.7rem;letter-spacing:0.04em;color:${c.fg};text-align:center;padding:8px;
-             font-family:'Exo 2',sans-serif;font-weight:700">${escuderia}</div>
+             font-family:'Microgramma','Exo 2',sans-serif;font-weight:700">${escuderia}</div>
         <div class="podium-pos-badge">${pos}</div>
       </div>
       <div class="podium-pilots-under">${thumb1}${thumb2}</div>
