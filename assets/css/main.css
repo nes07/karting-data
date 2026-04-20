@@ -10,8 +10,7 @@
    in assets/fonts/ and it will automatically override the Exo 2 fallback below.   */
 @font-face {
   font-family: 'Microgramma';
-  src: url('../fonts/microgramma-d-extended-bold.woff2') format('woff2'),
-       url('../fonts/microgramma-d-extended-bold.ttf')  format('truetype');
+  src: url('../fonts/microgramma-d-extended-bold.otf') format('opentype');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
