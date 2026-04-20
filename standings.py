@@ -1183,6 +1183,100 @@ def build_dotd_sheet(spreadsheet: gspread.Spreadsheet) -> gspread.Worksheet:
     return ws
 
 
+MEDIA_SHEET   = "Media"
+_MEDIA_COLS   = ["Tipo", "Título", "URL", "Fecha"]
+_MEDIA_N_COLS = len(_MEDIA_COLS)
+_MEDIA_ROWS   = 50
+
+
+def build_media_sheet(spreadsheet: gspread.Spreadsheet) -> gspread.Worksheet:
+    """
+    Creates (or rebuilds) the "Media" sheet.
+
+    Structure:
+      Row 1: merged header "GKD MEDIA"
+      Row 2: column headers (Tipo | Título | URL | Fecha)
+      Rows 3+: template rows (manually filled by organizer)
+    Column A has a dropdown: Foto | YouTube | Instagram
+    """
+    try:
+        ws = spreadsheet.worksheet(MEDIA_SHEET)
+        print(f'  Hoja "{MEDIA_SHEET}" ya existe — reconstruyendo...')
+    except gspread.WorksheetNotFound:
+        ws = spreadsheet.add_worksheet(
+            MEDIA_SHEET, rows=_MEDIA_ROWS + 5, cols=_MEDIA_N_COLS + 2,
+        )
+        print(f'  Creada nueva hoja "{MEDIA_SHEET}"')
+
+    sid = ws.id
+
+    spreadsheet.batch_update({"requests": [_freeze(sid, rows=0, cols=0)]})
+    spreadsheet.batch_update({"requests": [
+        _unmerge(sid, 0, _MEDIA_ROWS + 5, 0, _MEDIA_N_COLS + 2),
+        _reset_fmt(sid, 0, _MEDIA_ROWS + 5, 0, _MEDIA_N_COLS + 2),
+    ]})
+    ws.batch_clear([f"A1:{_col_letter(_MEDIA_N_COLS + 1)}{_MEDIA_ROWS + 5}"])
+
+    # Data grid
+    grid: list[list] = [
+        ["GKD MEDIA — 2026"] + [""] * (_MEDIA_N_COLS - 1),
+        _MEDIA_COLS,
+    ]
+    for _ in range(_MEDIA_ROWS):
+        grid.append(["", "", "", ""])
+
+    ws.update(range_name="A1", values=grid, value_input_option="RAW")
+
+    # Formatting
+    reqs: list[dict] = []
+
+    _NAV = {"red": 13/255, "green": 17/255, "blue": 23/255}
+    _BLU = {"red": 31/255, "green": 97/255, "blue": 141/255}
+    _WHT = {"red": 1.0, "green": 1.0, "blue": 1.0}
+    _GLD = {"red": 201/255, "green": 168/255, "blue": 76/255}
+
+    reqs += [
+        _merge(sid, 0, 1, 0, _MEDIA_N_COLS),
+        _fmt(sid, 0, 1, 0, _MEDIA_N_COLS, bg=_NAV, fg=_GLD,
+             bold=True, font_size=13, h_align="CENTER"),
+        _fmt(sid, 1, 2, 0, _MEDIA_N_COLS, bg=_BLU, fg=_WHT,
+             bold=True, font_size=10, h_align="CENTER"),
+        _fmt(sid, 2, _MEDIA_ROWS + 2, 0, _MEDIA_N_COLS,
+             bg={"red": 0.12, "green": 0.14, "blue": 0.18},
+             fg=_WHT, font_size=10),
+        _col_width(sid, 0, 120),   # Tipo
+        _col_width(sid, 1, 220),   # Título
+        _col_width(sid, 2, 420),   # URL
+        _col_width(sid, 3, 120),   # Fecha
+        _row_height(sid, 0, 36),
+        _row_height(sid, 1, 28),
+        _freeze(sid, rows=2),
+    ]
+
+    # Dropdown — Tipo (col A = index 0)
+    reqs.append({
+        "setDataValidation": {
+            "range": _rd(sid, 2, 2 + _MEDIA_ROWS, 0, 1),
+            "rule": {
+                "condition": {
+                    "type": "ONE_OF_LIST",
+                    "values": [
+                        {"userEnteredValue": "Foto"},
+                        {"userEnteredValue": "YouTube"},
+                        {"userEnteredValue": "Instagram"},
+                    ],
+                },
+                "showCustomUi": True,
+                "strict": False,
+            },
+        }
+    })
+
+    spreadsheet.batch_update({"requests": reqs})
+    print(f'  "{MEDIA_SHEET}" lista. Llena: Tipo | Título | URL | Fecha')
+    return ws
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -1196,6 +1290,8 @@ def main() -> None:
                         help="Solo escribir columnas de desempate (T en DS, O en TS)")
     parser.add_argument("--dotd-sheet", action="store_true",
                         help="Crear/reconstruir la hoja DOTD (Driver of the Day)")
+    parser.add_argument("--media-sheet", action="store_true",
+                        help="Crear/reconstruir la hoja Media (fotos, YouTube, Instagram)")
     args = parser.parse_args()
 
     print("🏁  Championship Standings — iniciando...\n")
@@ -1217,6 +1313,12 @@ def main() -> None:
     if args.dotd_sheet:
         print("🏆  Construyendo hoja DOTD...")
         build_dotd_sheet(spreadsheet)
+        print("✅ Listo.")
+        return
+
+    if args.media_sheet:
+        print("📸  Construyendo hoja Media...")
+        build_media_sheet(spreadsheet)
         print("✅ Listo.")
         return
 

@@ -498,6 +498,175 @@ function raceResultsCategory(label, entries, raceIdx, cat) {
 }
 
 // ── DOTD SECTION ──────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// MEDIA SECTION
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Extract YouTube video ID from any youtube.com or youtu.be URL */
+function ytIdFromUrl(url) {
+  const m =
+    url.match(/youtu\.be\/([^?&/]+)/) ||
+    url.match(/[?&]v=([^?&/]+)/)      ||
+    url.match(/\/embed\/([^?&/]+)/);
+  return m ? m[1] : null;
+}
+
+/** Extract Google Drive file ID from a drive.google.com share URL */
+function driveIdFromUrl(url) {
+  const m = url.match(/\/d\/([^/?&]+)/);
+  return m ? m[1] : null;
+}
+
+const PHOTO_PLACEHOLDER_LABELS = [
+  { label: "Fecha 1 — Marzo 2026",     icon: "📸" },
+  { label: "Fecha 2 — Abril 2026",     icon: "🏁" },
+  { label: "Fecha 3 — Mayo 2026",      icon: "🎬" },
+  { label: "Próximamente...",          icon: "⏳" },
+];
+
+function renderPhotoCarousel(fotos) {
+  const carousel = document.getElementById("media-carousel");
+  const wrap     = document.getElementById("media-gallery-wrap");
+  if (!carousel) return;
+  if (wrap) wrap.style.display = "";
+
+  if (!fotos || !fotos.length) {
+    // Show placeholder slides
+    carousel.innerHTML = PHOTO_PLACEHOLDER_LABELS.map(p => `
+      <div class="media-photo-slide media-photo-placeholder-slide">
+        <div class="media-placeholder-inner">
+          <span class="media-placeholder-icon">${p.icon}</span>
+          <span class="media-placeholder-label">${p.label}</span>
+          <span class="media-placeholder-sub">Las fotos aparecerán aquí</span>
+        </div>
+      </div>`).join("");
+  } else {
+    carousel.innerHTML = fotos.map(f => {
+      const fileId = driveIdFromUrl(f.url);
+      const imgSrc = fileId
+        ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`
+        : f.url;
+      return `
+        <div class="media-photo-slide">
+          <a href="${f.url}" target="_blank" rel="noopener">
+            <img src="${imgSrc}" alt="${f.titulo}" loading="lazy"
+                 onerror="this.style.display='none'">
+          </a>
+          <div class="media-photo-caption">
+            <span>${f.titulo}</span>
+            <span class="caption-date">${f.fecha}</span>
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+  // Arrow nav
+  const prev = document.getElementById("media-nav-prev");
+  const next = document.getElementById("media-nav-next");
+  const slideW = () => (carousel.querySelector(".media-photo-slide")?.offsetWidth || 340) + 16;
+  if (prev && next) {
+    prev.addEventListener("click", () => carousel.scrollBy({ left: -slideW(), behavior: "smooth" }));
+    next.addEventListener("click", () => carousel.scrollBy({ left:  slideW(), behavior: "smooth" }));
+  }
+
+  // Auto-scroll every 4 s
+  let autoTimer = setInterval(() => {
+    const maxScroll = carousel.scrollWidth - carousel.clientWidth;
+    if (carousel.scrollLeft >= maxScroll - 8) {
+      carousel.scrollTo({ left: 0, behavior: "smooth" });
+    } else {
+      carousel.scrollBy({ left: slideW(), behavior: "smooth" });
+    }
+  }, 4000);
+
+  // Pause auto-scroll on user interaction
+  carousel.addEventListener("pointerdown", () => clearInterval(autoTimer), { once: true });
+}
+
+const YT_ICON_SVG = `
+  <svg viewBox="0 0 68 48" xmlns="http://www.w3.org/2000/svg">
+    <path d="M66.5 7.7a8.5 8.5 0 0 0-5.9-6C55.3.5 34 .5 34 .5s-21.3 0-26.6 1.2a8.5 8.5 0 0 0-5.9 6C.3 13.1.3 24 .3 24s0 10.9 1.2 16.3a8.5 8.5 0 0 0 5.9 6C12.7 47.5 34 47.5 34 47.5s21.3 0 26.6-1.2a8.5 8.5 0 0 0 5.9-6C67.7 34.9 67.7 24 67.7 24s0-10.9-1.2-16.3z" fill="#ff0000"/>
+    <path d="M27 34l17.5-10L27 14v20z" fill="#fff"/>
+  </svg>`;
+
+const IG_ICON_SVG = `
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="24" height="24" rx="6" fill="none"/>
+    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" fill="white"/>
+  </svg>`;
+
+function renderVideoGrid(videos) {
+  const grid = document.getElementById("media-video-grid");
+  const wrap  = document.getElementById("media-videos-wrap");
+  if (!grid) return;
+  if (wrap) wrap.style.display = "";
+
+  if (!videos || !videos.length) {
+    grid.innerHTML = `
+      <div class="media-video-placeholder">
+        <div class="media-yt-placeholder-thumb"><div class="media-yt-badge">${YT_ICON_SVG}</div></div>
+        <div class="media-video-body">
+          <div class="media-video-title">Highlights Fecha 1</div>
+          <div class="media-video-date">Próximamente</div>
+          <div class="media-video-cta media-video-cta-dim">Ver video →</div>
+        </div>
+      </div>
+      <div class="media-video-placeholder">
+        <div class="media-ig-thumb">${IG_ICON_SVG}</div>
+        <div class="media-video-body">
+          <div class="media-video-title">Reel Oficial GKD</div>
+          <div class="media-video-date">Próximamente</div>
+          <div class="media-video-cta media-video-cta-dim">Ver en Instagram →</div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = videos.map(v => {
+    if (v.tipo === "YouTube") {
+      const vid    = ytIdFromUrl(v.url);
+      const thumb  = vid ? `https://img.youtube.com/vi/${vid}/mqdefault.jpg` : "";
+      return `
+        <a class="media-video-card media-yt-card" href="${v.url}" target="_blank" rel="noopener">
+          <div class="media-video-thumb">
+            ${thumb
+              ? `<img src="${thumb}" alt="${v.titulo}" loading="lazy">`
+              : `<div style="width:100%;height:100%;background:#111"></div>`}
+            <div class="media-yt-badge">${YT_ICON_SVG}</div>
+          </div>
+          <div class="media-video-body">
+            <div class="media-video-title">${v.titulo}</div>
+            <div class="media-video-date">${v.fecha}</div>
+            <div class="media-video-cta">Ver video →</div>
+          </div>
+        </a>`;
+    } else {
+      // Instagram
+      return `
+        <a class="media-video-card media-ig-card" href="${v.url}" target="_blank" rel="noopener">
+          <div class="media-ig-thumb">${IG_ICON_SVG}</div>
+          <div class="media-video-body">
+            <div class="media-video-title">${v.titulo}</div>
+            <div class="media-video-date">${v.fecha}</div>
+            <div class="media-video-cta">Ver en Instagram →</div>
+          </div>
+        </a>`;
+    }
+  }).join("");
+}
+
+function renderMedia(mediaData) {
+  const fotos  = (mediaData || []).filter(m => m.tipo === "Foto");
+  const videos = (mediaData || []).filter(m => m.tipo === "YouTube" || m.tipo === "Instagram");
+
+  // Always show the section (placeholders when empty)
+  const section = document.getElementById("media");
+  if (section) section.style.display = "";
+
+  renderPhotoCarousel(fotos);
+  renderVideoGrid(videos);
+}
+
 function renderDotd(dotdData) {
   const container = document.getElementById("dotd-timeline");
   if (!container) return;
@@ -650,6 +819,7 @@ async function init() {
       { month: "Septiembre", date: "27/09/2026" },
       { month: "Octubre",    date: "18/10/2026" },
     ]);
+    renderMedia([]);
     return;
   }
 
@@ -705,6 +875,9 @@ async function init() {
 
     // Race Results
     renderRaceResults(data.race_results || []);
+
+    // Media
+    renderMedia(data.media || []);
 
     // DOTD
     renderDotd(data.dotd);

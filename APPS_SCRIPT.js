@@ -249,6 +249,7 @@ function doGet() {
     race_dates:    _getRaceDates(ss),
     race_results:  _getRaceResults(ss),
     dotd:          _getDotd(ss),
+    media:         _getMedia(ss),
     race_months:   ["Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre"],
     updated_at:    new Date().toISOString(),
   };
@@ -451,7 +452,7 @@ function _getRaceResults(ss) {
             pilot,
             escuderia: lookup[pilot] || "",
             pts:       r[ptsColIdx] !== "" ? Number(r[ptsColIdx]) : null,
-            best_time: tiemposMap[pilot] || null,
+            best_time: tiemposMap[pilot] || tiemposMap[pilot.toLowerCase()] || null,
           };
         })
         .sort((a, b) => a.pos - b.pos);
@@ -472,6 +473,30 @@ function _getRaceResults(ss) {
 }
 
 
+// ─── Media sheet ──────────────────────────────────────────────────────────────
+/**
+ * Reads the "Media" sheet.
+ * Columns: A=Tipo  B=Título  C=URL  D=Fecha
+ * Tipo values: "Foto" | "YouTube" | "Instagram"
+ */
+function _getMedia(ss) {
+  try {
+    const ws = ss.getSheetByName("Media");
+    if (!ws) return [];
+    return ws.getDataRange().getValues().slice(1)
+      .filter(r => r[0] && r[2] && String(r[0]).trim() !== "")
+      .map(r => ({
+        tipo:   String(r[0]).trim(),
+        titulo: String(r[1]).trim(),
+        url:    String(r[2]).trim(),
+        fecha:  String(r[3]).trim(),
+      }));
+  } catch(e) {
+    return [];
+  }
+}
+
+
 function _buildTiemposLookup(ss) {
   try {
     const ws = ss.getSheetByName("Tiempos 2026");
@@ -485,7 +510,11 @@ function _buildTiemposLookup(ss) {
       .forEach(r => {
         const pilot = String(r[2]).trim();
         const best  = r[3] !== "" ? Number(r[3]) : null;
-        if (best !== null) map[pilot] = best;
+        if (best !== null) {
+          // Store with original and lowercase key for case-insensitive matching
+          map[pilot] = best;
+          map[pilot.toLowerCase()] = best;
+        }
       });
     return map;
   } catch(e) {

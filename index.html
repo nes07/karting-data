@@ -36,6 +36,7 @@
       <li><a href="#equipos">Equipos</a></li>
       <li><a href="#standings">Standings</a></li>
       <li><a href="#results">Resultados</a></li>
+      <li><a href="#media">Media</a></li>
       <li><a href="#dotd">Driver of the Day</a></li>
     </ul>
     <button class="navbar-burger" id="navbar-burger" aria-label="Menú">
@@ -197,6 +198,39 @@
       <div id="results-panels">
         <!-- generado dinámicamente por app.js -->
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════
+     MEDIA
+     ════════════════════════════════════════════════════════ -->
+<section id="media" class="section">
+  <div class="container">
+    <div class="section-header">
+      <span class="tag">Galería & Videos</span>
+      <h2 class="section-title">GKD <span class="accent">Media</span></h2>
+      <p class="section-subtitle">Fotos y videos de cada fecha del campeonato.</p>
+    </div>
+
+    <!-- Photo carousel -->
+    <div id="media-gallery-wrap" class="media-gallery-wrap">
+      <div class="media-sub-heading">
+        <span>📸</span> Galería de Fotos
+      </div>
+      <div class="media-carousel-container">
+        <button class="media-nav-btn media-nav-prev" id="media-nav-prev" aria-label="Anterior">&#8249;</button>
+        <div class="media-carousel" id="media-carousel"></div>
+        <button class="media-nav-btn media-nav-next" id="media-nav-next" aria-label="Siguiente">&#8250;</button>
+      </div>
+    </div>
+
+    <!-- Videos grid -->
+    <div id="media-videos-wrap" class="media-videos-wrap">
+      <div class="media-sub-heading">
+        <span>🎬</span> Videos
+      </div>
+      <div class="media-video-grid" id="media-video-grid"></div>
     </div>
   </div>
 </section>
