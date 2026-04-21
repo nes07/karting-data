@@ -435,6 +435,7 @@ function renderVueltaRapida(containerId, data) {
   const rows = data.map((r, i) => {
     const stateClass = r.variation === null ? "vr-new"
       : r.variation > 0  ? "vr-up-up"
+      : r.variation < 0  ? "vr-down"
       : "vr-neutral";
     const deltaStr = r.variation === null ? "★ Nuevo"
       : r.variation > 0  ? `▲ ${r.variation}`
@@ -459,8 +460,8 @@ function renderVueltaRapida(containerId, data) {
       </table>
     </div>
     <div class="vr-legend">
-      <span class="vr-legend-item vr-up-up">Mejoró tiempo y posición</span>
-      <span class="vr-legend-item vr-time-up">Mejoró tiempo</span>
+      <span class="vr-legend-item vr-up-up">Mejoró posición</span>
+      <span class="vr-legend-item vr-down">Perdió posición</span>
       <span class="vr-legend-item vr-new">Piloto nuevo</span>
       <span class="vr-legend-item vr-neutral">Sin variación</span>
     </div>`;
