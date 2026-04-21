@@ -335,7 +335,7 @@ function _getVueltaRapida(ss) {
       pilot:     String(r[2]).trim(),
       time:      r[3] !== "" ? Number(String(r[3]).replace(",", ".")) : null,
       variation: r[4] !== "" ? Number(r[4]) : null,
-      date:      r[5] ? String(r[5]) : null,
+      date:      r[5] ? Utilities.formatDate(new Date(r[5]), Session.getScriptTimeZone(), "dd/MM/yyyy") : null,
     }))
     .sort((a, b) => (a.time || 999) - (b.time || 999));
 }

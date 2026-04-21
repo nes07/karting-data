@@ -58,12 +58,19 @@ function slugify(str) {
 
 function timeAgo(dateStr) {
   if (!dateStr) return "—";
-  const parts = String(dateStr).split("/").map(Number);
-  if (parts.length < 3) return dateStr;
-  const [d, m, y] = parts;
-  const then = new Date(y, m - 1, d);
-  const days = Math.floor((Date.now() - then) / 86400000);
-  if (days < 0)   return dateStr;
+  let then;
+  const s = String(dateStr).trim();
+  // DD/MM/YYYY (expected from Apps Script formatted dates)
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
+    const [d, m, y] = s.split("/").map(Number);
+    then = new Date(y, m - 1, d);
+  } else {
+    // Full JS date string e.g. "Sun Apr 12 2026 00:00:00 GMT-0400 ..."
+    then = new Date(s);
+  }
+  if (!then || isNaN(then.getTime())) return "—";
+  const days = Math.floor((Date.now() - then.getTime()) / 86400000);
+  if (days < 0)   return "—";
   if (days === 0) return "Hoy";
   if (days === 1) return "Ayer";
   if (days < 7)   return `Hace ${days} días`;
@@ -428,7 +435,6 @@ function renderVueltaRapida(containerId, data) {
   const rows = data.map((r, i) => {
     const stateClass = r.variation === null ? "vr-new"
       : r.variation > 0  ? "vr-up-up"
-      : r.variation === 0 ? "vr-time-up"
       : "vr-neutral";
     const deltaStr = r.variation === null ? "★ Nuevo"
       : r.variation > 0  ? `▲ ${r.variation}`
