@@ -56,6 +56,45 @@ function slugify(str) {
     .replace(/[^a-z0-9-]/g, "");
 }
 
+function timeAgo(dateStr) {
+  if (!dateStr) return "—";
+  const parts = String(dateStr).split("/").map(Number);
+  if (parts.length < 3) return dateStr;
+  const [d, m, y] = parts;
+  const then = new Date(y, m - 1, d);
+  const days = Math.floor((Date.now() - then) / 86400000);
+  if (days < 0)   return dateStr;
+  if (days === 0) return "Hoy";
+  if (days === 1) return "Ayer";
+  if (days < 7)   return `Hace ${days} días`;
+  if (days < 14)  return "Hace 1 semana";
+  if (days < 30)  return `Hace ${Math.floor(days / 7)} semanas`;
+  if (days < 60)  return "Hace 1 mes";
+  if (days < 365) return `Hace ${Math.floor(days / 30)} meses`;
+  if (days < 730) return "Hace 1 año";
+  return `Hace ${Math.floor(days / 365)} años`;
+}
+
+function navigateToStandings(type, name, category) {
+  if (!category) return;
+  // 1. Scroll to standings section
+  document.getElementById("standings")?.scrollIntoView({ behavior: "smooth" });
+  // 2. Activate the correct tab
+  const tabId = type === "driver" ? `tab-ds-${category}` : `tab-ts-${category}`;
+  document.querySelector(`.tab-btn[data-tab="${tabId}"]`)?.click();
+  // 3. After the tab switch + scroll settle, find row and flash it
+  setTimeout(() => {
+    const rowId = type === "driver" ? `dr-${slugify(name)}` : `tm-${slugify(name)}`;
+    const row = document.getElementById(rowId);
+    if (!row) return;
+    row.scrollIntoView({ behavior: "smooth", block: "center" });
+    row.classList.remove("row-highlight");
+    void row.offsetWidth; // force reflow to restart animation
+    row.classList.add("row-highlight");
+    setTimeout(() => row.classList.remove("row-highlight"), 2200);
+  }, 450);
+}
+
 function initials(alias) {
   return alias.split(/\s+/).map(w => w[0]).join("").toUpperCase().slice(0, 2);
 }
@@ -177,11 +216,12 @@ function renderPilots(inscritos) {
     return;
   }
   container.innerHTML = inscritos.map(p => `
-    <div class="pilot-card">
+    <div class="pilot-card" data-pilot="${p.alias}" data-category="${p.category || ""}">
       ${pilotImgOrPlaceholder(p.alias)}
       <div class="pilot-overlay">
         <div class="pilot-name">${p.alias}</div>
         ${p.name && p.name !== p.alias ? `<div class="pilot-fullname">${p.name}</div>` : ""}
+        <div class="overlay-nav-hint">Ver en Standings →</div>
       </div>
     </div>
   `).join("");
@@ -204,7 +244,7 @@ function renderTeamCategory(containerId, teams, cat) {
   container.innerHTML = sorted.map(t => {
     const c = CONSTRUCTOR_COLORS[t.escuderia] || { bg: "#666", fg: "#fff" };
     return `
-      <div class="team-card">
+      <div class="team-card" data-escuderia="${t.escuderia}" data-category="${cat}">
         ${teamImgOrPlaceholder(cat, t.escuderia)}
         <div class="team-color-bar" style="background:${c.bg}"></div>
         <div class="team-overlay">
@@ -213,6 +253,7 @@ function renderTeamCategory(containerId, teams, cat) {
           <span class="team-escuderia-badge" style="background:${c.bg};color:${c.fg}">
             ${cat.toUpperCase()}
           </span>
+          <div class="overlay-nav-hint">Ver en Standings →</div>
         </div>
       </div>`;
   }).join("");
@@ -320,7 +361,7 @@ function renderDriversTable(containerId, pilots, months) {
       </td>`;
     }).join("");
     return `
-      <tr class="${rowClass(p.rank)}">
+      <tr id="dr-${slugify(p.pilot)}" data-pilot="${p.pilot}" class="${rowClass(p.rank)}">
         <td>${rankBadge(p.rank)}</td>
         <td class="pilot-cell">${p.pilot}</td>
         <td class="pts-total">${fmtPts(p.total_pts)}</td>
@@ -354,7 +395,7 @@ function renderTeamsTable(containerId, teams, months) {
       return `<td class="pts-small">${pts !== null && pts !== undefined ? pts : "—"}</td>`;
     }).join("");
     return `
-      <tr class="${rowClass(t.rank)}">
+      <tr id="tm-${slugify(t.escuderia)}" data-escuderia="${t.escuderia}" class="${rowClass(t.rank)}">
         <td>${rankBadge(t.rank)}</td>
         <td class="pilot-cell">${t.team || t.escuderia}</td>
         <td>${constructorBadge(t.escuderia)}</td>
@@ -385,25 +426,37 @@ function renderVueltaRapida(containerId, data) {
     return;
   }
   const rows = data.map((r, i) => {
-    const deltaClass = r.variation > 0 ? "delta-pos" : r.variation < 0 ? "delta-neg" : "delta-neu";
-    const deltaStr   = r.variation > 0 ? `▲${r.variation}` : r.variation < 0 ? `▼${Math.abs(r.variation)}` : "=";
+    const stateClass = r.variation === null ? "vr-new"
+      : r.variation > 0  ? "vr-up-up"
+      : r.variation === 0 ? "vr-time-up"
+      : "vr-neutral";
+    const deltaStr = r.variation === null ? "★ Nuevo"
+      : r.variation > 0  ? `▲ ${r.variation}`
+      : r.variation === 0 ? "↔ —"
+      : `▼ ${Math.abs(r.variation)}`;
     return `
-      <tr class="${rowClass(i + 1)}">
+      <tr class="${rowClass(i + 1)} ${stateClass}">
         <td>${rankBadge(i + 1)}</td>
         <td class="pilot-cell">${r.pilot}</td>
         <td class="time-cell ${i === 0 ? "best" : ""}">${fmtTime(r.time)}</td>
-        <td class="${deltaClass}" style="font-weight:600">${deltaStr}</td>
-        <td class="pts-small">${r.date || "—"}</td>
+        <td class="vr-delta" style="font-weight:600">${deltaStr}</td>
+        <td class="pts-small" title="${r.date || ""}">${timeAgo(r.date)}</td>
       </tr>`;
   }).join("");
   el.innerHTML = `
     <div class="standings-table-wrap">
       <table class="standings-table">
         <thead>
-          <tr><th>#</th><th>Piloto</th><th>Mejor Tiempo</th><th>Variación</th><th>Fecha</th></tr>
+          <tr><th>#</th><th>Piloto</th><th>Mejor Tiempo</th><th>Variación</th><th>Récord</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
+    </div>
+    <div class="vr-legend">
+      <span class="vr-legend-item vr-up-up">Mejoró tiempo y posición</span>
+      <span class="vr-legend-item vr-time-up">Mejoró tiempo</span>
+      <span class="vr-legend-item vr-new">Piloto nuevo</span>
+      <span class="vr-legend-item vr-neutral">Sin variación</span>
     </div>`;
 }
 
@@ -702,26 +755,55 @@ function renderDotd(dotdData) {
   `).join("");
 }
 
-// ── CARD TAPS (mobile hover fallback) ────────────────────────────────────────
-function initCardTaps() {
-  // Event delegation per container — works even after dynamic render
+// ── CARD TAPS (mobile hover fallback + navigation) ───────────────────────────
+function initCardTaps(pilotCategoryMap) {
+  pilotCategoryMap = pilotCategoryMap || {};
+
+  // Detect touch device: no hover capability → mobile tap mode
+  const isTouch = window.matchMedia("(hover: none)").matches;
+
+  function getCardNav(card) {
+    if (card.classList.contains("pilot-card")) {
+      const pilot    = card.dataset.pilot    || "";
+      const category = card.dataset.category || pilotCategoryMap[pilot] || "";
+      return { type: "driver", name: pilot, category };
+    }
+    if (card.classList.contains("team-card")) {
+      return { type: "team", name: card.dataset.escuderia || "", category: card.dataset.category || "" };
+    }
+    return null;
+  }
+
   function setupContainer(containerId, cardSel) {
     const container = document.getElementById(containerId);
     if (!container) return;
     container.addEventListener("click", e => {
       const card = e.target.closest(cardSel);
-      // Tap outside a card → close all in this container
+
+      // Tap outside a card → close all
       if (!card) {
-        container.querySelectorAll(`${cardSel}.active`)
-          .forEach(c => c.classList.remove("active"));
+        container.querySelectorAll(`${cardSel}.active`).forEach(c => c.classList.remove("active"));
         return;
       }
       e.stopPropagation();
+
       const isActive = card.classList.contains("active");
-      // Close any other open card first
-      container.querySelectorAll(`${cardSel}.active`)
-        .forEach(c => c.classList.remove("active"));
-      if (!isActive) card.classList.add("active");
+
+      if (isTouch) {
+        // Mobile: 1st tap shows overlay, 2nd tap navigates
+        container.querySelectorAll(`${cardSel}.active`).forEach(c => c.classList.remove("active"));
+        if (!isActive) {
+          card.classList.add("active");
+        } else {
+          // 2nd tap → navigate
+          const nav = getCardNav(card);
+          if (nav) navigateToStandings(nav.type, nav.name, nav.category);
+        }
+      } else {
+        // Desktop: single click navigates directly (hover already shows overlay)
+        const nav = getCardNav(card);
+        if (nav) navigateToStandings(nav.type, nav.name, nav.category);
+      }
     });
   }
 
@@ -803,7 +885,7 @@ function setError() {
 async function init() {
   initNavbar();
   initTabs();
-  initCardTaps();
+  initCardTaps({});
   setLoading();
 
   if (!GKD_API_URL || GKD_API_URL.includes("YOUR_APPS_SCRIPT")) {
@@ -835,10 +917,26 @@ async function init() {
     // Countdown
     startCountdown(data.race_dates || []);
 
+    // Build pilot → category lookup (f1 / f2)
+    const pilotCategoryMap = {};
+    (data.equipos_f1 || []).forEach(t => {
+      if (t.pilot1) pilotCategoryMap[t.pilot1] = "f1";
+      if (t.pilot2) pilotCategoryMap[t.pilot2] = "f1";
+    });
+    (data.equipos_f2 || []).forEach(t => {
+      if (t.pilot1) pilotCategoryMap[t.pilot1] = "f2";
+      if (t.pilot2) pilotCategoryMap[t.pilot2] = "f2";
+    });
+
+    // Enrich inscritos with category for card navigation
+    const inscritosWithCat = (data.inscritos || []).map(p => ({
+      ...p, category: pilotCategoryMap[p.alias] || "",
+    }));
+
     // Pilots & Teams
-    renderPilots(data.inscritos);
+    renderPilots(inscritosWithCat);
     renderTeams(data.equipos_f1, data.equipos_f2);
-    initCardTaps();
+    initCardTaps(pilotCategoryMap);
 
     // Build pilot → escudería lookup from Equipos for podium badges
     const escuderiaMap = {};
