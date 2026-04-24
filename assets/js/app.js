@@ -21,6 +21,16 @@ const IMG = {
   logo_f1:(escuderia)        => `assets/images/logos/${slugify(escuderia)}.png`,
 };
 
+// Drive image lookup maps — populated in init() from data.drive_images
+window._drivePilots = {};
+window._driveTeams  = {};
+
+/** Returns a Google Drive thumbnail URL for a given file ID. */
+function driveThumb(fileId, size) {
+  size = size || "w800";
+  return `https://drive.google.com/thumbnail?id=${fileId}&sz=${size}`;
+}
+
 // Constructor colors (mirrors APPS_SCRIPT.js CONSTRUCTOR_COLORS)
 const CONSTRUCTOR_COLORS = {
   "McLaren":         { bg: "#EF8733", fg: "#000000" },
@@ -142,10 +152,13 @@ function stringToColor(str) {
   return `hsl(${h},40%,18%)`;
 }
 
-function pilotImgOrPlaceholder(alias, classes = "") {
-  const src = IMG.pilot(alias);
-  const ini = initials(alias);
-  const color = stringToColor(alias);
+function pilotImgOrPlaceholder(alias, classes) {
+  classes = classes || "";
+  const slug    = slugify(alias);
+  const driveEntry = window._drivePilots[slug];
+  const src     = driveEntry ? driveThumb(driveEntry.id, "w400") : IMG.pilot(alias);
+  const ini     = initials(alias);
+  const color   = stringToColor(alias);
   return `
     <img src="${src}" alt="${alias}" class="${classes}"
          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
@@ -154,8 +167,10 @@ function pilotImgOrPlaceholder(alias, classes = "") {
 }
 
 function teamImgOrPlaceholder(cat, escuderia) {
-  const src = IMG.team(cat, escuderia);
-  const c   = CONSTRUCTOR_COLORS[escuderia] || { bg: "#1a1d26", fg: "#fff" };
+  const slug       = slugify(escuderia);
+  const driveEntry = window._driveTeams[slug];
+  const src        = driveEntry ? driveThumb(driveEntry.id, "w600") : IMG.team(cat, escuderia);
+  const c          = CONSTRUCTOR_COLORS[escuderia] || { bg: "#1a1d26", fg: "#fff" };
   return `
     <img src="${src}" alt="${escuderia}"
          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
@@ -602,10 +617,9 @@ function renderPhotoCarousel(fotos) {
       </div>`).join("");
   } else {
     carousel.innerHTML = fotos.map(f => {
-      const fileId = driveIdFromUrl(f.url);
-      const imgSrc = fileId
-        ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`
-        : f.url;
+      // Prefer _driveId (set by renderMedia for Drive entries), then extract from URL
+      const fileId = f._driveId || driveIdFromUrl(f.url);
+      const imgSrc = fileId ? driveThumb(fileId, "w1200") : f.url;
       return `
         <div class="media-photo-slide">
           <a href="${f.url}" target="_blank" rel="noopener">
@@ -715,9 +729,33 @@ function renderVideoGrid(videos) {
   }).join("");
 }
 
-function renderMedia(mediaData) {
-  const fotos  = (mediaData || []).filter(m => m.tipo === "Foto");
-  const videos = (mediaData || []).filter(m => m.tipo === "YouTube" || m.tipo === "Instagram");
+/**
+ * @param {Array}  sheetMedia  - entries from the "Media" Google Sheet
+ * @param {Array}  driveMedia  - entries from data.drive_images.media
+ *                               [ { folder: "Fecha 2 [2026-04-12]", files: [{id, name}] }, … ]
+ */
+function renderMedia(sheetMedia, driveMedia) {
+  // Convert Drive folder files into Foto entries
+  const driveFotos = (driveMedia || []).flatMap(group => {
+    // Try to extract a date from the folder name, e.g. "Fecha 2 [2026-04-12]"
+    const dateMatch = group.folder.match(/(\d{4}-\d{2}-\d{2})/);
+    const fecha     = dateMatch
+      ? dateMatch[1].split("-").reverse().join("/")  // → "12/04/2026"
+      : "";
+    // Sort files alphabetically for consistent order
+    return [...group.files].sort((a, b) => a.name.localeCompare(b.name)).map(f => ({
+      tipo:     "Foto",
+      titulo:   group.folder,
+      url:      `https://drive.google.com/file/d/${f.id}/view`,
+      fecha:    fecha,
+      _driveId: f.id,
+    }));
+  });
+
+  // Sheet-based Foto entries first, then Drive entries
+  const sheetFotos = (sheetMedia || []).filter(m => m.tipo === "Foto");
+  const fotos      = [...sheetFotos, ...driveFotos];
+  const videos     = (sheetMedia  || []).filter(m => m.tipo === "YouTube" || m.tipo === "Instagram");
 
   // Always show the section (placeholders when empty)
   const section = document.getElementById("media");
@@ -921,6 +959,17 @@ async function init() {
       "Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre"
     ];
 
+    // Populate Drive image lookup maps before any rendering
+    const DI = data.drive_images || { pilots: {}, teams: {}, media: [] };
+    window._drivePilots = DI.pilots || {};
+    window._driveTeams  = DI.teams  || {};
+
+    // Debug: warn in console for any pilot without a Drive photo
+    (data.inscritos || []).forEach(p => {
+      if (!window._drivePilots[slugify(p.alias)])
+        console.info(`[GKD Drive] No photo for pilot: "${p.alias}" (slug: "${slugify(p.alias)}")`);
+    });
+
     // Countdown
     startCountdown(data.race_dates || []);
 
@@ -982,7 +1031,7 @@ async function init() {
     renderRaceResults(data.race_results || []);
 
     // Media
-    renderMedia(data.media || []);
+    renderMedia(data.media || [], DI.media || []);
 
     // DOTD
     renderDotd(data.dotd);
