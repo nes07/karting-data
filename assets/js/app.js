@@ -249,6 +249,26 @@ function parseDate(str) {
   return new Date(Number(y), Number(m) - 1, Number(d), 12, 0, 0);
 }
 
+/**
+ * Formats any date string (DD/MM/YYYY or full JS date string) as
+ * "Domingo 12 de Abril" in Spanish.
+ */
+function formatDotdDate(str) {
+  if (!str) return "";
+  const DAYS_ES   = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+  const MONTHS_ES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio",
+                     "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  let dt;
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str.trim())) {
+    const [d, m, y] = str.trim().split("/");
+    dt = new Date(Number(y), Number(m) - 1, Number(d), 12, 0, 0);
+  } else {
+    dt = new Date(str);
+  }
+  if (isNaN(dt)) return str;
+  return `${DAYS_ES[dt.getDay()]} ${dt.getDate()} de ${MONTHS_ES[dt.getMonth()]}`;
+}
+
 // ── PILOTS SECTION ────────────────────────────────────────────────────────────
 function renderPilots(inscritos) {
   const container = document.getElementById("pilots-grid");
@@ -808,7 +828,7 @@ function renderDotd(dotdData) {
       </div>
       <div class="dotd-body">
         <div class="dotd-meta">
-          <span class="dotd-date">${d.date}</span>
+          <span class="dotd-date">${formatDotdDate(d.date)}</span>
           <span class="dotd-category">${d.category || ""}</span>
         </div>
         <div class="dotd-pilot-name">${d.pilot}</div>
