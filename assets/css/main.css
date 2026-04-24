@@ -613,6 +613,15 @@ button { cursor: pointer; border: none; background: none; }
   white-space: normal;
   line-height: 1.25;
 }
+@media (max-width: 480px) {
+  .pilot-cell {
+    max-width: 72px;
+    font-size: 0.72rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
 
 .time-cell {
   font-family: 'Microgramma', 'Exo 2', sans-serif;
