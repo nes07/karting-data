@@ -629,7 +629,11 @@ button { cursor: pointer; border: none; background: none; }
   font-weight: 600;
   color: var(--gold-light);
 }
-.time-cell.best { color: #ff79c6; }
+/* F1-style sector time coloring for Vuelta Rápida */
+.time-cell.vr-t1 { color: #c084fc; text-shadow: 0 0 10px rgba(192,132,252,0.6); } /* purple  — best overall */
+.time-cell.vr-t2 { color: #facc15; text-shadow: 0 0 8px  rgba(250,204,21,0.4);  } /* yellow  — top 3       */
+.time-cell.vr-t3 { color: #4ade80; text-shadow: 0 0 6px  rgba(74,222,128,0.3);  } /* green   — top 10      */
+.time-cell.vr-t4 { color: var(--gray); }                                           /* white/dim — rest      */
 
 /* Vuelta Rápida row states — left-border accent + subtle bg tint */
 .vr-new     { border-left: 3px solid #67e8f9; background: rgba(103,232,249,0.05); }

@@ -496,11 +496,16 @@ function renderVueltaRapida(containerId, data) {
       : r.variation > 0  ? `▲ ${r.variation}`
       : r.variation === 0 ? "↔ —"
       : `▼ ${Math.abs(r.variation)}`;
+    // F1-style time coloring: purple=best, yellow=top3, green=top10, dim=rest
+    const timeClass = i === 0 ? "vr-t1"
+      : i < 3  ? "vr-t2"
+      : i < 10 ? "vr-t3"
+      : "vr-t4";
     return `
       <tr class="${rowClass(i + 1)} ${stateClass}">
         <td>${rankBadge(i + 1)}</td>
         <td class="pilot-cell">${r.pilot}</td>
-        <td class="time-cell ${i === 0 ? "best" : ""}">${fmtTime(r.time)}</td>
+        <td class="time-cell ${timeClass}">${fmtTime(r.time)}</td>
         <td class="vr-delta" style="font-weight:600">${deltaStr}</td>
         <td class="pts-small" title="${r.date || ""}">${timeAgo(r.date)}</td>
       </tr>`;
