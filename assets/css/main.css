@@ -980,7 +980,8 @@ button { cursor: pointer; border: none; background: none; }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
+  width: 100%;
+  min-width: 0;
 }
 
 /* constructor badge between name and pts */
@@ -1335,7 +1336,8 @@ button { cursor: pointer; border: none; background: none; }
   .dotd-card { flex-direction: column; gap: 14px; }
   .dotd-photo { width: 56px; height: 56px; }
 
-  .podium-slot { width: 130px; }
+  .podium-slot { width: 28vw; max-width: 130px; min-width: 0; overflow: hidden; }
+  .podium-name { font-size: 0.62rem; letter-spacing: 0.02em; }
   .podium-slot[data-pos="1"] .podium-img-wrap { width: 80px; height: 80px; }
   .podium-img-wrap { width: 68px; height: 68px; }
   .podium-slot[data-pos="1"] .podium-pedestal { height: 72px; }
