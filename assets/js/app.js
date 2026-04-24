@@ -11,7 +11,7 @@
 
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 // Replace this URL after deploying the Apps Script Web App.
-const GKD_API_URL = "https://script.google.com/macros/s/AKfycbyzmktQeDF-2icJOXsrRQMb795ka020cYFDrKzcN9t3fJ8G2dPYCw37MTg8rsk0GWKe/exec";
+const GKD_API_URL = "https://script.google.com/macros/s/AKfycbyF8cSTm6lRmXDImIHXKvnh4EPHo27Ubk80NKKrW28NmX4zCeUFFYqWd0kLNcMYOic/exec";
 
 // Image base paths (relative to index.html)
 const IMG = {
