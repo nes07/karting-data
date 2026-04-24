@@ -496,11 +496,10 @@ function renderVueltaRapida(containerId, data) {
       : r.variation > 0  ? `▲ ${r.variation}`
       : r.variation === 0 ? "↔ —"
       : `▼ ${Math.abs(r.variation)}`;
-    // F1-style time coloring: purple=best, yellow=top3, green=top10, dim=rest
-    const timeClass = i === 0 ? "vr-t1"
-      : i < 3  ? "vr-t2"
-      : i < 10 ? "vr-t3"
-      : "vr-t4";
+    // F1-style time coloring: purple=best overall, green=improved personal best, dim=rest
+    const timeClass = i === 0       ? "vr-t1"   // purple — best time in history
+      : r.variation > 0             ? "vr-t3"   // green  — improved their personal best
+      : "vr-t4";                                // dim    — no improvement this session
     return `
       <tr class="${rowClass(i + 1)} ${stateClass}">
         <td>${rankBadge(i + 1)}</td>
