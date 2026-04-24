@@ -471,6 +471,25 @@ button { cursor: pointer; border: none; background: none; }
 .tabs-wrapper {
   position: relative;
 }
+/* Fade + arrow hint on the right to signal horizontal scrollability */
+.tabs-wrapper::after {
+  content: "›";
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 10px;
+  background: linear-gradient(to right, transparent, var(--bg-card) 70%);
+  font-size: 1.3rem;
+  color: var(--gray);
+  pointer-events: none;
+  border-radius: 0 12px 0 0;
+  transition: opacity 0.3s;
+  z-index: 2;
+}
+.tabs-wrapper.scrolled-end::after { opacity: 0; }
 .tabs-nav {
   display: flex;
   gap: 4px;
@@ -895,9 +914,10 @@ button { cursor: pointer; border: none; background: none; }
 .podium-team-logo {
   width: 100%; height: 100%;
   border-radius: 12px;
-  object-fit: contain;
-  padding: 14px;
-  background: rgba(255,255,255,0.96);
+  object-fit: cover;
+  object-position: center top;
+  padding: 0;
+  background: rgba(255,255,255,0.06);
   border: 3px solid var(--border);
 }
 .podium-slot[data-pos="1"] .podium-team-logo { border-color: var(--gold); box-shadow: 0 0 24px rgba(201,168,76,0.45); }

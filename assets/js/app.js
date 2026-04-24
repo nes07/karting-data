@@ -895,6 +895,18 @@ function initTabs() {
       if (target) target.classList.add("active");
     });
   });
+
+  // Hide the scroll-hint arrow once the user has scrolled the tab nav
+  document.querySelectorAll(".tabs-nav").forEach(nav => {
+    const wrapper = nav.closest(".tabs-wrapper");
+    if (!wrapper) return;
+    const update = () => {
+      const atEnd = nav.scrollLeft + nav.clientWidth >= nav.scrollWidth - 8;
+      wrapper.classList.toggle("scrolled-end", atEnd);
+    };
+    nav.addEventListener("scroll", update, { passive: true });
+    update(); // hide arrow immediately if all tabs already fit
+  });
 }
 
 // ── NAVBAR ────────────────────────────────────────────────────────────────────
