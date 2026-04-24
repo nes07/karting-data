@@ -31,6 +31,26 @@ function driveThumb(fileId, size) {
   return `https://drive.google.com/thumbnail?id=${fileId}&sz=${size}`;
 }
 
+/**
+ * Returns the best available image URL for a pilot alias.
+ * Checks Drive lookup first, falls back to local asset path.
+ */
+function drivePilotSrc(alias, size) {
+  size = size || "w400";
+  const entry = window._drivePilots[slugify(alias)];
+  return entry ? driveThumb(entry.id, size) : IMG.pilot(alias);
+}
+
+/**
+ * Returns the best available logo URL for a team/escudería.
+ * Checks Drive lookup first, falls back to local asset path.
+ */
+function driveTeamSrc(escuderia, size) {
+  size = size || "w400";
+  const entry = window._driveTeams[slugify(escuderia)];
+  return entry ? driveThumb(entry.id, size) : IMG.logo_f1(escuderia);
+}
+
 // Constructor colors (mirrors APPS_SCRIPT.js CONSTRUCTOR_COLORS)
 const CONSTRUCTOR_COLORS = {
   "McLaren":         { bg: "#EF8733", fg: "#000000" },
@@ -309,7 +329,7 @@ function podiumSlotDriver(pos, e) {
   const c        = esc ? (CONSTRUCTOR_COLORS[esc] || { bg: "#444", fg: "#fff" }) : null;
   const pts      = e.total_pts !== undefined ? e.total_pts : (e.pts !== undefined ? e.pts : "");
   const ptsLabel = e.pts_label !== undefined ? e.pts_label : (pts !== "" ? `${pts} pts` : "");
-  const imgUrl   = IMG.pilot(name);
+  const imgUrl   = drivePilotSrc(name, "w400");
   const ini      = initials(name);
   const color    = stringToColor(name);
 
@@ -339,12 +359,12 @@ function podiumSlotTeam(pos, t) {
   const escuderia = t.escuderia || t.team || "";
   const pts       = t.total_pts !== undefined ? t.total_pts : (t.pts !== undefined ? t.pts : "");
   const ptsLabel  = pts !== "" ? `${pts} pts` : "";
-  const logoUrl   = IMG.logo_f1(escuderia);
+  const logoUrl   = driveTeamSrc(escuderia, "w400");
   const c         = CONSTRUCTOR_COLORS[escuderia] || { bg: "#1a1d26", fg: "#fff" };
 
-  const thumb1 = t.pilot1 ? `<img class="podium-pilot-thumb" src="${IMG.pilot(t.pilot1)}"
+  const thumb1 = t.pilot1 ? `<img class="podium-pilot-thumb" src="${drivePilotSrc(t.pilot1, "w200")}"
     alt="${t.pilot1}" onerror="this.style.display='none'">` : "";
-  const thumb2 = t.pilot2 ? `<img class="podium-pilot-thumb" src="${IMG.pilot(t.pilot2)}"
+  const thumb2 = t.pilot2 ? `<img class="podium-pilot-thumb" src="${drivePilotSrc(t.pilot2, "w200")}"
     alt="${t.pilot2}" onerror="this.style.display='none'">` : "";
 
   return `
@@ -782,7 +802,7 @@ function renderDotd(dotdData) {
   container.innerHTML = sorted.map(d => `
     <div class="dotd-card">
       <div class="dotd-photo">
-        <img src="${IMG.pilot(d.pilot)}" alt="${d.pilot}"
+        <img src="${drivePilotSrc(d.pilot, "w400")}" alt="${d.pilot}"
              onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
         <div class="dotd-photo-placeholder" style="display:none">${initials(d.pilot)}</div>
       </div>
@@ -964,7 +984,18 @@ async function init() {
     window._drivePilots = DI.pilots || {};
     window._driveTeams  = DI.teams  || {};
 
-    // Debug: warn in console for any pilot without a Drive photo
+    // Manual alias overrides: Drive filename slug → inscritos alias slug
+    // Needed when the photo filename doesn't exactly match the pilot alias.
+    const DRIVE_PILOT_OVERRIDES = {
+      "juan-campos": "juan",        // JUAN - JAGUAR.jpg  (alias is "JUAN CAMPOS")
+      "jose-manuel": "manolo",      // MANOLO - BRAWN JP.jpg  (alias is "JOSE MANUEL")
+    };
+    Object.entries(DRIVE_PILOT_OVERRIDES).forEach(([alias, driveSlug]) => {
+      if (!window._drivePilots[alias] && window._drivePilots[driveSlug])
+        window._drivePilots[alias] = window._drivePilots[driveSlug];
+    });
+
+    // Debug: log pilots without a Drive photo
     (data.inscritos || []).forEach(p => {
       if (!window._drivePilots[slugify(p.alias)])
         console.info(`[GKD Drive] No photo for pilot: "${p.alias}" (slug: "${slugify(p.alias)}")`);
