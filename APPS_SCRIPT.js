@@ -89,6 +89,13 @@ const TS_TOTAL_COLS    = 16;   // A–N (data) + O (Pos Prom) + P (Mejor Tiempo)
 const TS_POS_PROM_COL  = 15;   // Column O (1-indexed) — Team Pos Promedio (tiebreaker 1)
 const TS_BEST_TIME_COL = 16;   // Column P (1-indexed) — Team Mejor Tiempo (tiebreaker 2)
 
+// ─── Tiempos 2026 / reset de trazado ──────────────────────────────────────────
+const TRACK_RESET_DATE      = "2026-05-10";
+const TIEMPOS_DATE_ROW      = 2;   // fila con fechas (1-indexed)
+const TIEMPOS_FIRST_DATA_ROW= 4;   // primera fila de pilotos
+const TIEMPOS_PILOT_COL     = 3;   // C = Piloto
+const TIEMPOS_FIRST_RACE_COL= 19;  // S = primera columna de carrera
+
 
 // ─── Main trigger ─────────────────────────────────────────────────────────────
 function onEdit(e) {
@@ -250,6 +257,7 @@ function doGet() {
     race_results:  _getRaceResults(ss),
     dotd:          _getDotd(ss),
     media:         _getMedia(ss),
+    drive_images:  _getDriveImages(),
     race_months:   ["Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre"],
     updated_at:    new Date().toISOString(),
   };
@@ -326,36 +334,174 @@ function _getTeamStandings(ss, startRow, endRow) {
 function _getVueltaRapida(ss) {
   const ws   = ss.getSheetByName("Campeonato Vuelta Rapida");
   const rows = ws.getDataRange().getValues();
-  // Real layout (0-indexed): A=blank B=rank C=Piloto D=Tiempo E=Variación F=Fecha
-  // Rows 0-1 blank, row 2 = headers, data starts at row 3
+  // Read by header names when possible (robust to column shifts).
+  // Rows 0-1 blank, row 2 = headers, data starts at row 3.
+  const header = rows[2] || [];
+  const norm = function(v) {
+    return String(v || "")
+      .toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .trim();
+  };
+  const idxByHeader = {};
+  header.forEach(function(h, i) { idxByHeader[norm(h)] = i; });
+
+  const idxRank = idxByHeader["lugar"] !== undefined ? idxByHeader["lugar"] : 2;
+  const idxPilot = idxByHeader["piloto"] !== undefined ? idxByHeader["piloto"] : 3;
+  const idxTime = idxByHeader["tiempo"] !== undefined ? idxByHeader["tiempo"] : 4;
+  const idxVariation = idxByHeader["variacion"] !== undefined ? idxByHeader["variacion"] : 5;
+  const idxDate = idxByHeader["fecha"] !== undefined ? idxByHeader["fecha"] : 5;
+
   return rows.slice(3)
-    .filter(r => r[2] && String(r[2]).trim() !== "")
-    .map(r => ({
-      rank:      r[1] !== "" ? Number(r[1]) : null,
-      pilot:     String(r[2]).trim(),
-      time:      r[3] !== "" ? Number(String(r[3]).replace(",", ".")) : null,
-      variation: r[4] !== "" ? Number(r[4]) : null,
-      date:      r[5] ? Utilities.formatDate(new Date(r[5]), Session.getScriptTimeZone(), "dd/MM/yyyy") : null,
-    }))
+    .map(function(r) {
+      const pilot = String(r[idxPilot] || "").trim();
+      if (!pilot) return null;
+
+      const rankRaw = r[idxRank];
+      const timeRaw = r[idxTime];
+      const variationRaw = idxVariation < r.length ? r[idxVariation] : null;
+      const dateRaw = idxDate < r.length ? r[idxDate] : null;
+
+      let variation = null;
+      if (variationRaw !== "" && variationRaw !== null && variationRaw !== undefined) {
+        const v = Number(variationRaw);
+        // Guard against mis-read layouts (e.g. time parsed as variation = 38.x)
+        if (!isNaN(v) && Math.abs(v) <= 20) variation = v;
+      }
+
+      return {
+        rank: rankRaw !== "" && rankRaw !== null && rankRaw !== undefined ? Number(rankRaw) : null,
+        pilot: pilot,
+        time: _toSeconds(timeRaw),
+        variation: variation,
+        date: dateRaw ? Utilities.formatDate(new Date(dateRaw), Session.getScriptTimeZone(), "dd/MM/yyyy") : null,
+      };
+    })
+    .filter(r => r !== null)
     .sort((a, b) => (a.time || 999) - (b.time || 999));
 }
 
 
+function _toIsoDate(value) {
+  if (!value) return null;
+
+  // Native date cell
+  if (Object.prototype.toString.call(value) === "[object Date]" && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  }
+
+  // Text date
+  const str = String(value).trim();
+  if (!str) return null;
+
+  // dd/MM/yyyy
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) {
+    const parts = str.split("/");
+    const d = Number(parts[0]);
+    const m = Number(parts[1]);
+    const y = Number(parts[2]);
+    if (d && m && y) {
+      const dt = new Date(y, m - 1, d, 12, 0, 0);
+      if (!isNaN(dt.getTime())) {
+        return Utilities.formatDate(dt, Session.getScriptTimeZone(), "yyyy-MM-dd");
+      }
+    }
+  }
+
+  // Fallback parse (e.g. Sun Apr 12 2026 ...)
+  const dt = new Date(str);
+  if (isNaN(dt.getTime())) return null;
+  return Utilities.formatDate(dt, Session.getScriptTimeZone(), "yyyy-MM-dd");
+}
+
+
+function _toSeconds(value) {
+  if (value === "" || value === null || value === undefined) return null;
+
+  if (typeof value === "number") {
+    return value > 1000 ? value / 1000 : value;
+  }
+
+  const n = Number(String(value).trim().replace(",", "."));
+  if (isNaN(n)) return null;
+  return n > 1000 ? n / 1000 : n;
+}
+
+
+/**
+ * Computes best/average times per pilot from race columns in "Tiempos 2026",
+ * considering ONLY sessions on/after TRACK_RESET_DATE.
+ *
+ * Returns:
+ *   { "PILOT": { best, average }, ... }
+ */
+function _computeResetTiemposByPilot(ss) {
+  const ws = ss.getSheetByName("Tiempos 2026");
+  if (!ws) return {};
+
+  const lastRow = ws.getLastRow();
+  const lastCol = ws.getLastColumn();
+  if (lastRow < TIEMPOS_FIRST_DATA_ROW) return {};
+
+  const grid = ws.getRange(1, 1, lastRow, lastCol).getValues();
+  const datesRow = grid[TIEMPOS_DATE_ROW - 1] || [];
+
+  const weeks = [];
+  let col = TIEMPOS_FIRST_RACE_COL - 1; // 0-indexed
+  while (col < datesRow.length) {
+    const iso = _toIsoDate(datesRow[col]);
+    if (iso) {
+      if (iso >= TRACK_RESET_DATE) {
+        weeks.push({ date: iso, c1: col, c2: col + 1 });
+      }
+      col += 2;
+    } else {
+      col += 1;
+    }
+  }
+
+  const result = {};
+  for (let r = TIEMPOS_FIRST_DATA_ROW - 1; r < grid.length; r++) {
+    const pilot = String(grid[r][TIEMPOS_PILOT_COL - 1] || "").trim();
+    if (!pilot) continue;
+
+    let best = null;
+    let sum = 0;
+    let count = 0;
+
+    weeks.forEach(function(w) {
+      [w.c1, w.c2].forEach(function(c) {
+        if (c >= grid[r].length) return;
+        const t = _toSeconds(grid[r][c]);
+        if (t === null) return;
+        if (best === null || t < best) best = t;
+        sum += t;
+        count += 1;
+      });
+    });
+
+    result[pilot] = {
+      best: best,
+      average: count ? (sum / count) : null,
+    };
+  }
+
+  return result;
+}
+
+
 function _getTiempos2026(ss) {
-  const ws   = ss.getSheetByName("Tiempos 2026");
-  // Real layout (0-indexed from col A):
-  //   A=blank  B=N  C=Pilotos  D=Mejor Tiempo  E=Tiempo Promedio
-  // Rows 0-2 = headers, data starts at row 3 (1-indexed row 4)
-  // Read 5 cols from col A so indices match: r[0]=blank r[1]=N r[2]=Piloto r[3]=best r[4]=avg
-  const rows = ws.getRange(4, 1, ws.getLastRow() - 3, 5).getValues();
-  return rows
-    .filter(r => r[2] && String(r[2]).trim() !== "")
-    .map(r => ({
-      pilot:   String(r[2]).trim(),
-      best:    r[3] !== "" ? Number(r[3]) : null,
-      average: r[4] !== "" ? Number(r[4]) : null,
-    }))
-    .sort((a, b) => (a.best || 999) - (b.best || 999));
+  const byPilot = _computeResetTiemposByPilot(ss);
+  return Object.keys(byPilot)
+    .map(function(pilot) {
+      return {
+        pilot: pilot,
+        best: byPilot[pilot].best,
+        average: byPilot[pilot].average,
+      };
+    })
+    .filter(function(r) { return r.best !== null; })
+    .sort(function(a, b) { return (a.best || 999) - (b.best || 999); });
 }
 
 
@@ -473,6 +619,112 @@ function _getRaceResults(ss) {
 }
 
 
+// ─── Google Drive image integration ───────────────────────────────────────────
+const GKD_MEDIA_FOLDER_ID = "1tZbsg9j-TRuhAbwTvfg5aZ8sFEda83mQ";
+
+/**
+ * Scans the GKD Media Drive folder and returns:
+ *   pilots  — { "nico-e": { id, original }, … }  (matched by slugified filename)
+ *   teams   — { "mclaren": { id, original }, … }
+ *   media   — [ { folder, files: [{id, name}] }, … ]  (all other subfolders)
+ * Results are cached in CacheService for 6 hours to avoid slow Drive API calls.
+ */
+function _getDriveImages() {
+  const cache  = CacheService.getScriptCache();
+  const cached = cache.get("gkd_drive_images");
+  if (cached) {
+    try { return JSON.parse(cached); } catch(e) {}
+  }
+
+  try {
+    const root   = DriveApp.getFolderById(GKD_MEDIA_FOLDER_ID);
+    const result = { pilots: {}, teams: {}, media: [] };
+    const subs   = root.getFolders();
+
+    while (subs.hasNext()) {
+      const folder = subs.next();
+      const name   = folder.getName();
+
+      if (name === "Fotos Pilotos 2026") {
+        result.pilots = _slugIndexFolder(folder);
+      } else if (name === "Fotos Equipos 2026") {
+        result.teams = _slugIndexFolder(folder);
+      } else {
+        // Race date folders (Fecha 2 [2026-04-12], Camera Tests, …) → carousel
+        const files = _listImageFiles(folder);
+        if (files.length) result.media.push({ folder: name, files: files });
+      }
+    }
+
+    cache.put("gkd_drive_images", JSON.stringify(result), 21600); // 6 h
+    return result;
+  } catch(e) {
+    return { pilots: {}, teams: {}, media: [], error: e.toString() };
+  }
+}
+
+/**
+ * Returns { "nico-e": { id: "FILE_ID", original: "NICO E - ASTON MARTIN.jpg" }, … }
+ * keyed by slugified PILOT/TEAM alias extracted from the filename.
+ *
+ * Filename convention:  "ALIAS - CONSTRUCTOR.jpg"  OR  "ALIAS.jpg"
+ * Only the part BEFORE the first " - " is used as the lookup key so that
+ * "NICO E - ASTON MARTIN.jpg" maps to slug "nico-e".
+ *
+ * Also recurses into any direct subfolders (e.g. "PILOTOS - MODERNA" inside
+ * "Fotos Pilotos 2026") so categories are handled automatically.
+ */
+function _slugIndexFolder(folder) {
+  var map   = {};
+  var mimes = [MimeType.JPEG, MimeType.PNG, "image/webp"];
+
+  function _indexFiles(f) {
+    mimes.forEach(function(mime) {
+      var it = f.getFilesByType(mime);
+      while (it.hasNext()) {
+        var file     = it.next();
+        var nameNoExt = file.getName().replace(/\.[^.]+$/, "");
+        // Use only the part before the first " - " separator (pilot alias or team name)
+        var base     = nameNoExt.indexOf(" - ") !== -1
+          ? nameNoExt.split(" - ")[0]
+          : nameNoExt;
+        var slug     = base
+          .toLowerCase()
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .replace(/\s+/g, "-")
+          .replace(/[^a-z0-9-]/g, "");
+        if (slug) map[slug] = { id: file.getId(), original: file.getName() };
+      }
+    });
+
+    // Recurse into subfolders (e.g. "PILOTOS - MODERNA" inside "Fotos Pilotos 2026")
+    var subs = f.getFolders();
+    while (subs.hasNext()) {
+      _indexFiles(subs.next());
+    }
+  }
+
+  _indexFiles(folder);
+  return map;
+}
+
+/** Returns [{id, name}] for every image file in a folder (JPEG, PNG, WEBP, HEIC, HEIF). */
+function _listImageFiles(folder) {
+  var files = [];
+  var mimes = [MimeType.JPEG, MimeType.PNG, "image/webp", "image/heic", "image/heif"];
+  mimes.forEach(function(mime) {
+    try {
+      var it = folder.getFilesByType(mime);
+      while (it.hasNext()) {
+        var f = it.next();
+        files.push({ id: f.getId(), name: f.getName() });
+      }
+    } catch(e) { /* unsupported mime type — skip */ }
+  });
+  return files;
+}
+
+
 // ─── Media sheet ──────────────────────────────────────────────────────────────
 /**
  * Reads the "Media" sheet.
@@ -499,23 +751,15 @@ function _getMedia(ss) {
 
 function _buildTiemposLookup(ss) {
   try {
-    const ws = ss.getSheetByName("Tiempos 2026");
-    if (!ws) return {};
-    const lastRow = ws.getLastRow();
-    if (lastRow < 4) return {};
-    const rows = ws.getRange(4, 1, lastRow - 3, 5).getValues();
+    const byPilot = _computeResetTiemposByPilot(ss);
     const map  = {};
-    rows
-      .filter(r => r[2] && String(r[2]).trim() !== "")
-      .forEach(r => {
-        const pilot = String(r[2]).trim();
-        const best  = r[3] !== "" ? Number(r[3]) : null;
-        if (best !== null) {
-          // Store with original and lowercase key for case-insensitive matching
-          map[pilot] = best;
-          map[pilot.toLowerCase()] = best;
-        }
-      });
+    Object.keys(byPilot).forEach(function(pilot) {
+      const best = byPilot[pilot].best;
+      if (best === null) return;
+      // Store with original and lowercase key for case-insensitive matching
+      map[pilot] = best;
+      map[pilot.toLowerCase()] = best;
+    });
     return map;
   } catch(e) {
     return {};
