@@ -140,6 +140,21 @@ button { cursor: pointer; border: none; background: none; }
 .navbar-links a:hover { color: var(--white); }
 .navbar-links a.active { color: var(--red); }
 
+.navbar-admin {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gray-light);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 14px;
+  transition: color 0.2s, border-color 0.2s;
+  white-space: nowrap;
+}
+.navbar-admin:hover { color: var(--white); border-color: var(--red); }
+.navbar-admin-mobile { display: none; }
+
 .navbar-burger {
   display: none;
   flex-direction: column;
@@ -1506,6 +1521,8 @@ button { cursor: pointer; border: none; background: none; }
     backdrop-filter: blur(16px);
   }
   .navbar-burger { display: flex; }
+  .navbar-admin { display: none; }
+  .navbar-admin-mobile { display: block; }
 
   .countdown { gap: 10px; }
   .countdown-block { min-width: 56px; padding: 12px 14px; }

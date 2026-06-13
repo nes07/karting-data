@@ -36,6 +36,11 @@ const CARDS = [
     title: "📸 Media",
     desc: "Fotos y videos que se muestran en la página pública.",
   },
+  {
+    href: "/admin/admins",
+    title: "🔐 Administradores",
+    desc: "Da o quita acceso al panel agregando correos de Google.",
+  },
 ];
 
 export default function AdminHome() {

@@ -12,6 +12,7 @@ const NAV = [
   ["/admin/drivers", "Pilotos"],
   ["/admin/teams", "Equipos"],
   ["/admin/media", "Media"],
+  ["/admin/admins", "Admins"],
 ] as const;
 
 export default async function AdminLayout({

@@ -33,7 +33,15 @@ export function Navbar() {
               </a>
             </li>
           ))}
+          <li className="navbar-admin-mobile">
+            <a href="/admin" onClick={() => setOpen(false)}>
+              🔐 Admin
+            </a>
+          </li>
         </ul>
+        <a href="/admin" className="navbar-admin" title="Panel de administración">
+          🔐 Admin
+        </a>
         <button
           className="navbar-burger"
           aria-label="Menú"
