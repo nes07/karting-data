@@ -25,12 +25,20 @@
  *   Row 1: "NUEVA ERA — F1" category header
  *   Row 2: month sub-headers
  *   Row 3: column labels
- *   Rows 4–19: 16 F1 pilots  ← sort range
- *   Row 20: blank spacer
- *   Row 21: "ERA ANTIGUA — F2" category header
- *   Row 22: month sub-headers
- *   Row 23: column labels
- *   Rows 24–39: 16 F2 pilots/TBD  ← sort range
+ *   Rows 4–N: F1 pilots + reserve drivers  ← sort range (detected dynamically)
+ *   Blank spacer row(s)
+ *   "ERA ANTIGUA — F2" category header + sub-headers + labels
+ *   Rows M–P: F2 pilots + reserve drivers  ← sort range (detected dynamically)
+ *
+ *   Section boundaries are found by _findDataSections(): any row with a
+ *   positive integer in col A and a non-empty pilot name in col B is a data
+ *   row.  You can add pilots or reserve drivers freely without touching the
+ *   script constants.
+ *
+ *   Reserve drivers (escudería = "RD" in the API) are pilots who appear in
+ *   a standings section but are NOT registered in the Equipos sheet for that
+ *   category.  Their points count fully for their own ranking and at half-
+ *   value for the team they replace (handled by the Suplentes sheet formulas).
  *
  * Row layout — Team Standings:
  *   Row 1: "NUEVA ERA — F1" header
@@ -69,15 +77,19 @@ const CONSTRUCTOR_COLORS = {
   "Minardi":         { bg: "#1C1C1C", fg: "#FFD700" },
   "Brawn GP":        { bg: "#E6FF00", fg: "#000000" },
   "Brabham":         { bg: "#001A57", fg: "#FFFFFF" },
+  // Reserve / replacement drivers
+  "RD":              { bg: "#E2E8F0", fg: "#475569" },
 };
 
 
 // ─── Column numbers (1-indexed) where Posición is entered ────────────────────
 const DS_POSICION_COLS = [4, 6, 8, 10, 12, 14, 16, 18]; // D,F,H,J,L,N,P,R
 
-// ─── Drivers Standings row ranges (1-indexed, inclusive) ─────────────────────
-const DS_F1_START = 4,  DS_F1_END = 19;  // 16 F1 pilots
-const DS_F2_START = 24, DS_F2_END = 39;  // 16 F2 pilots/TBD
+// ─── Drivers Standings — fallback row ranges (used only if sheet is empty) ───
+// Section boundaries are detected dynamically by _findDataSections() so that
+// adding more pilots or reserve drivers never requires touching these constants.
+const DS_F1_START = 4,  DS_F1_END = 19;
+const DS_F2_START = 24, DS_F2_END = 39;
 const DS_TOTAL_COLS    = 21;   // A–S (data) + T (Pos Prom) + U (Mejor Tiempo)
 const DS_POS_PROM_COL  = 20;   // Column T (1-indexed) — Pos Promedio (tiebreaker 1)
 const DS_BEST_TIME_COL = 21;   // Column U (1-indexed) — Mejor Tiempo (tiebreaker 2)
@@ -95,6 +107,50 @@ const TIEMPOS_DATE_ROW      = 2;   // fila con fechas (1-indexed)
 const TIEMPOS_FIRST_DATA_ROW= 4;   // primera fila de pilotos
 const TIEMPOS_PILOT_COL     = 3;   // C = Piloto
 const TIEMPOS_FIRST_RACE_COL= 19;  // S = primera columna de carrera
+
+
+// ─── Dynamic section detector ────────────────────────────────────────────────
+/**
+ * Scans a Drivers Standings sheet and returns the row bounds of every pilot
+ * data section (F1, F2, and any future sections) without relying on hardcoded
+ * row numbers.
+ *
+ * A row is considered a data row when:
+ *   col A = positive integer (the rank #)
+ *   col B = non-empty string that is not the column header "Piloto"
+ *
+ * Header rows, merged title rows, month sub-headers, and blank buffer rows all
+ * fail at least one of those conditions, so they are automatically excluded.
+ *
+ * Returns: [ { start: N, end: M }, … ]  (1-indexed, inclusive, one entry per section)
+ */
+function _findDataSections(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 1) return [];
+
+  const vals = sheet.getRange(1, 1, lastRow, 2).getValues();
+  const sections = [];
+  let sectionStart = null;
+
+  for (let i = 0; i < vals.length; i++) {
+    const aRaw = vals[i][0];
+    const bVal = String(vals[i][1] || "").trim();
+    const aNum = Number(aRaw);
+    const isData = aRaw !== "" && !isNaN(aNum) && Number.isInteger(aNum) && aNum > 0
+                   && bVal !== "" && bVal !== "Piloto";
+
+    if (isData && sectionStart === null) {
+      sectionStart = i + 1; // convert to 1-indexed
+    } else if (!isData && sectionStart !== null) {
+      sections.push({ start: sectionStart, end: i }); // i is the first non-data row (1-indexed = i+1-1 = i)
+      sectionStart = null;
+    }
+  }
+  if (sectionStart !== null) {
+    sections.push({ start: sectionStart, end: lastRow });
+  }
+  return sections;
+}
 
 
 // ─── Main trigger ─────────────────────────────────────────────────────────────
@@ -159,12 +215,20 @@ function _handleDriversStandingsSort(e, sheet) {
   // Wait a tick so formula cells can recalculate before we sort
   SpreadsheetApp.flush();
 
-  if (row >= DS_F1_START && row <= DS_F1_END) {
-    _sortSection(sheet, DS_F1_START, DS_F1_END, DS_TOTAL_COLS, 3, DS_POS_PROM_COL, DS_BEST_TIME_COL);
-    _sortTeamSection("Team Standings", TS_F1_START, TS_F1_END, TS_TOTAL_COLS, 6, TS_POS_PROM_COL, TS_BEST_TIME_COL);
-  } else if (row >= DS_F2_START && row <= DS_F2_END) {
-    _sortSection(sheet, DS_F2_START, DS_F2_END, DS_TOTAL_COLS, 3, DS_POS_PROM_COL, DS_BEST_TIME_COL);
-    _sortTeamSection("Team Standings", TS_F2_START, TS_F2_END, TS_TOTAL_COLS, 6, TS_POS_PROM_COL, TS_BEST_TIME_COL);
+  // Detect section boundaries dynamically — works regardless of how many
+  // pilots or reserve drivers have been added to each section.
+  const sections   = _findDataSections(sheet);
+  const sectionIdx = sections.findIndex(s => row >= s.start && row <= s.end);
+  if (sectionIdx === -1) return;
+
+  const s = sections[sectionIdx];
+  _sortSection(sheet, s.start, s.end, DS_TOTAL_COLS, 3, DS_POS_PROM_COL, DS_BEST_TIME_COL);
+
+  // Mirror to Team Standings: section 0 → F1 teams, section 1 → F2 teams
+  const tsStart = sectionIdx === 0 ? TS_F1_START : sectionIdx === 1 ? TS_F2_START : null;
+  const tsEnd   = sectionIdx === 0 ? TS_F1_END   : sectionIdx === 1 ? TS_F2_END   : null;
+  if (tsStart !== null) {
+    _sortTeamSection("Team Standings", tsStart, tsEnd, TS_TOTAL_COLS, 6, TS_POS_PROM_COL, TS_BEST_TIME_COL);
   }
 }
 
@@ -180,16 +244,21 @@ function _sortSection(sheet, startRow, endRow, numCols, sortCol, tiebreakerCol, 
   const range = sheet.getRange(startRow, 1, numRows, numCols);
 
   const sortSpec = [
-    { column: sortCol,      ascending: false }, // 1st: most points
-    { column: tiebreakerCol, ascending: true },  // 2nd: lower avg position
-    { column: bestTimeCol,   ascending: true },  // 3rd: faster best lap time
+    { column: sortCol,       ascending: false }, // 1st: most points
+    { column: tiebreakerCol, ascending: true  }, // 2nd: lower avg position
+    { column: bestTimeCol,   ascending: true  }, // 3rd: faster best lap time
   ];
   range.sort(sortSpec);
 
-  // Renumber the # column (column A = 1)
+  // Batch-read pilot names and write sequential rank numbers only for
+  // non-empty rows — buffer rows (empty pilot name) get their # cleared.
+  const pilots = sheet.getRange(startRow, 2, numRows, 1).getValues();
+  const ranks  = [];
+  let rank = 1;
   for (let i = 0; i < numRows; i++) {
-    sheet.getRange(startRow + i, 1).setValue(i + 1);
+    ranks.push([String(pilots[i][0]).trim() !== "" ? rank++ : ""]);
   }
+  sheet.getRange(startRow, 1, numRows, 1).setValues(ranks);
 }
 
 
@@ -216,10 +285,491 @@ function _sortTeamSection(tsSheetName, startRow, endRow, numCols, sortCol, tiebr
   ];
   range.sort(sortSpec);
 
-  // Renumber # column
+  // Batch-read team names and write sequential rank numbers only for non-empty rows
+  const teams = ts.getRange(startRow, 2, numRows, 1).getValues();
+  const ranks = [];
+  let rank = 1;
   for (let i = 0; i < numRows; i++) {
-    ts.getRange(startRow + i, 1).setValue(i + 1);
+    ranks.push([String(teams[i][0]).trim() !== "" ? rank++ : ""]);
   }
+  ts.getRange(startRow, 1, numRows, 1).setValues(ranks);
+}
+
+
+// ─── DOTD formula setup ───────────────────────────────────────────────────────
+/**
+ * One-shot setup: replaces the manual value in col W (DOTD points) with a
+ * COUNTIF formula that counts how many times each pilot appears in the DOTD
+ * tab.  After running this, adding a new row to the DOTD sheet automatically
+ * updates the pilot's W and their Puntos Totales (col C) — no manual step.
+ *
+ * Run once from Apps Script:
+ *   Extensions → Apps Script → select setupDotdFormulas → ▶ Run
+ *
+ * Idempotent — safe to run multiple times.
+ */
+function setupDotdFormulas() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName("Drivers Standings");
+  if (!ws) {
+    SpreadsheetApp.getUi().alert('❌ Hoja "Drivers Standings" no encontrada.');
+    return;
+  }
+
+  const sections = _findDataSections(ws);
+  if (!sections.length) {
+    SpreadsheetApp.getUi().alert("❌ No se encontraron secciones de datos en Drivers Standings.");
+    return;
+  }
+
+  let updated = 0;
+
+  for (const section of sections) {
+    const numRows = section.end - section.start + 1;
+
+    // Batch read: all pilot names in this section (1 API call)
+    const pilots = ws.getRange(section.start, 2, numRows, 1).getValues();
+
+    // Build the full column-W formulas array in memory
+    const formulas = [];
+    for (let i = 0; i < numRows; i++) {
+      const pilot = String(pilots[i][0] || "").trim();
+      const r     = section.start + i;
+      if (pilot) {
+        formulas.push([`=COUNTIF(DOTD!$B:$B;B${r})`]);
+        updated++;
+      } else {
+        formulas.push([""]); // empty buffer row — leave blank
+      }
+    }
+
+    // Batch write: entire col W for this section (1 API call)
+    ws.getRange(section.start, 23, numRows, 1).setFormulas(formulas);
+  }
+
+  SpreadsheetApp.getUi().alert(
+    `✅ Fórmula DOTD configurada en ${updated} pilotos.\n` +
+    `Col W ahora se actualiza automáticamente desde la tab DOTD.`
+  );
+}
+
+
+// ─── Participation points migration ───────────────────────────────────────────
+/**
+ * One-shot migration: rewrites the Puntos Totales formula (col C) for every
+ * pilot row in Drivers Standings so that each race attended adds +1 point.
+ *
+ * Run once from Apps Script:
+ *   Extensions → Apps Script → select addParticipationPoints → ▶ Run
+ *
+ * The function is idempotent — running it multiple times produces the same
+ * result because it always rebuilds the formula from scratch.
+ *
+ * New formula per row:
+ *   =SUM(E#,G#,I#,K#,M#,O#,Q#,S#)
+ *   +(D#<>"")*1+(F#<>"")*1+(H#<>"")*1+(J#<>"")*1
+ *   +(L#<>"")*1+(N#<>"")*1+(P#<>"")*1+(R#<>"")*1
+ *
+ * Covers both F1 and F2, all past and future races.
+ * Reserve drivers (RD) are included — they also earn the participation point.
+ */
+function addParticipationPoints() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName("Drivers Standings");
+  if (!ws) {
+    SpreadsheetApp.getUi().alert('❌ Hoja "Drivers Standings" no encontrada.');
+    return;
+  }
+
+  // Race points columns (formula-calculated from position)
+  const PTS_COLS = ["E","G","I","K","M","O","Q","S"];
+  // Race position columns (manually entered)
+  const POS_COLS = ["D","F","H","J","L","N","P","R"];
+
+  const sections = _findDataSections(ws);
+  if (!sections.length) {
+    SpreadsheetApp.getUi().alert("❌ No se encontraron secciones de datos en Drivers Standings.");
+    return;
+  }
+
+  let updated = 0;
+
+  for (const section of sections) {
+    const numRows = section.end - section.start + 1;
+
+    // Batch read: pilot names only (1 API call per section)
+    const pilots = ws.getRange(section.start, 2, numRows, 1).getValues();
+
+    // Build complete col C formulas from scratch — avoids locale mismatch
+    // issues that arise from reading and modifying the existing Spanish-locale
+    // formula (SUMA/semicolons vs SUM/commas expected by setFormulas).
+    //
+    // Formula:  =SUM(race points, W) + participation count
+    //   race points = E,G,I,K,M,O,Q,S (formula per month, set by Sheets)
+    //   W           = DOTD bonus (auto-COUNTIF set by setupDotdFormulas)
+    //   participation = +1 for each non-empty position column D,F,H,J,L,N,P,R
+    const newFormulas = [];
+    for (let i = 0; i < numRows; i++) {
+      const pilot = String(pilots[i][0] || "").trim();
+      const r     = section.start + i;
+      if (pilot) {
+        const sumPart  = [...PTS_COLS, "W"].map(c => `${c}${r}`).join(";");
+        const partPart = POS_COLS.map(c => `(${c}${r}<>"")*1`).join("+");
+        newFormulas.push([`=SUM(${sumPart})+${partPart}`]);
+        updated++;
+      } else {
+        newFormulas.push([""]); // buffer row — clear
+      }
+    }
+
+    // Batch write: entire col C for this section (1 API call per section)
+    ws.getRange(section.start, 3, numRows, 1).setFormulas(newFormulas);
+  }
+
+  SpreadsheetApp.getUi().alert(
+    `✅ Fórmula actualizada en ${updated} pilotos.\n` +
+    `Cada piloto recibe +1 punto por cada fecha a la que asistió.`
+  );
+}
+
+
+// ─── Variation (Var) formula setup ────────────────────────────────────────────
+/**
+ * One-shot setup: writes a self-contained formula to column V (Var) for every
+ * pilot row in Drivers Standings.
+ *
+ * "Var" = change in ranking position compared to the previous race session.
+ *   Positive → moved UP the standings (e.g. +2 = gained 2 positions).
+ *   Negative → moved DOWN.
+ *   Zero     → no change.
+ *
+ * How it works (on-the-fly approach, no helper columns needed):
+ *   1. Identify the most recent race a pilot competed in by checking the
+ *      position columns D,F,H,J,L,N,P,R from last (Octubre) to first (Marzo).
+ *   2. "Previous points" = current total (C) minus that race's position pts
+ *      (col E/G/…/S) minus the 1-point participation bonus for that race.
+ *   3. Compute the previous rank by counting, within the same section, how
+ *      many pilots had strictly more previous points (SUMPRODUCT).
+ *   4. Var = previous_rank − current_rank (col A).
+ *
+ * DOTD points (col W) are intentionally left in both current and previous
+ * totals because DOTD awards are not tied to a single race in the formula.
+ *
+ * Run once from Apps Script:
+ *   Extensions → Apps Script → select setupVariationFormulas → ▶ Run
+ *
+ * Idempotent — safe to run multiple times.
+ */
+function setupVariationFormulas() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName("Drivers Standings");
+  if (!ws) {
+    SpreadsheetApp.getUi().alert('❌ Hoja "Drivers Standings" no encontrada.');
+    return;
+  }
+
+  // Race pairs in chronological order: [positionCol, pointsCol]
+  const RACE_PAIRS = [
+    ["D","E"], ["F","G"], ["H","I"], ["J","K"],
+    ["L","M"], ["N","O"], ["P","Q"], ["R","S"]
+  ];
+
+  /**
+   * Builds nested IFs so the OUTERMOST condition is the NEWEST race (Octubre),
+   * falling back through earlier months.  This ensures we always pick up the
+   * most recent race a pilot competed in, not the earliest.
+   *
+   * Strategy: iterate forward (Marzo → Octubre), wrapping each new IF around
+   * the previous expression.  The last iteration (Octubre) becomes the
+   * outermost IF and is therefore evaluated first by Google Sheets.
+   */
+  function lastContribSingle(r) {
+    let f = "0";
+    for (let i = 0; i < RACE_PAIRS.length; i++) {   // Marzo first → Octubre last
+      const [pos, pts] = RACE_PAIRS[i];
+      f = `IF(${pos}${r}<>"";${pts}${r}+1;${f})`;
+    }
+    return f;
+  }
+
+  /**
+   * Same logic but for an entire section range (absolute rows), producing an
+   * element-wise array suitable for use inside SUMPRODUCT.
+   */
+  function lastContribArray(sStart, sEnd) {
+    let f = "0";
+    for (let i = 0; i < RACE_PAIRS.length; i++) {   // Marzo first → Octubre last
+      const [pos, pts] = RACE_PAIRS[i];
+      f = `IF(${pos}$${sStart}:${pos}$${sEnd}<>"";${pts}$${sStart}:${pts}$${sEnd}+1;${f})`;
+    }
+    return f;
+  }
+
+  const sections = _findDataSections(ws);
+  if (!sections.length) {
+    SpreadsheetApp.getUi().alert("❌ No se encontraron secciones de datos en Drivers Standings.");
+    return;
+  }
+
+  let updated = 0;
+
+  for (const section of sections) {
+    const { start: sStart, end: sEnd } = section;
+    const numRows = sEnd - sStart + 1;
+
+    // Batch read pilot names (1 API call per section)
+    const pilots = ws.getRange(sStart, 2, numRows, 1).getValues();
+
+    // Pre-build the section-wide "previous points" array expression — shared
+    // by all pilots in this section, only the row suffix differs per pilot.
+    const prevPtsArr = `(C$${sStart}:C$${sEnd}-${lastContribArray(sStart, sEnd)})`;
+
+    const formulas = [];
+    for (let i = 0; i < numRows; i++) {
+      const pilot = String(pilots[i][0] || "").trim();
+      const r = sStart + i;
+      if (pilot) {
+        // Number of races this pilot has attended
+        const attendedCount = RACE_PAIRS.map(([pos]) => `(${pos}${r}<>"")*1`).join("+");
+        // Previous points for this specific pilot row
+        const myPrevPts = `(C${r}-${lastContribSingle(r)})`;
+        // If the pilot has only 0 or 1 race there is no previous ranking to
+        // compare to (debut), so leave Var blank.  Otherwise compute normally:
+        //   Previous rank = 1 + how many section pilots had strictly more prev_pts
+        //   Variation     = previous_rank − current_rank (col A)
+        const formula =
+          `=IF(${attendedCount}<=1;"";` +
+          `1+SUMPRODUCT((${prevPtsArr}>${myPrevPts})*1)-A${r})`;
+        formulas.push([formula]);
+        updated++;
+      } else {
+        formulas.push([""]); // buffer / empty row — clear
+      }
+    }
+
+    // Batch write col V (column 22) — 1 API call per section
+    ws.getRange(sStart, 22, numRows, 1).setFormulas(formulas);
+  }
+
+  SpreadsheetApp.getUi().alert(
+    `✅ Variación configurada en ${updated} pilotos.\n` +
+    `Col V muestra el cambio de posición respecto a la carrera anterior.\n` +
+    `(+) subió posiciones  |  (−) bajó  |  0 sin cambio`
+  );
+}
+
+
+// ─── Team Standings — Participation points migration ─────────────────────────
+/**
+ * One-shot migration: rewrites the Puntos Totales formula (col F) for every
+ * team row in Team Standings so that each race where at least one OFFICIAL
+ * pilot attended adds +1 point to the team.
+ *
+ * Correct detection: look up each official pilot's POSITION column (not points)
+ * in Drivers Standings.  A pilot who finished last scores 0 race points but
+ * still has a position value ≥ 1 — checking points > 0 would miss them.
+ * If VLOOKUP returns a value > 0 for col D or col E in the corresponding DS
+ * section, an official pilot competed that month → +1 bonus.
+ *
+ * DS position column offsets (counting col B as 1):
+ *   Marzo=3, Abril=5, Mayo=7, Junio=9, Julio=11, Agosto=13, Sept=15, Oct=17
+ *
+ * New formula per row:
+ *   =SUM(G#;…;N#)
+ *   + (pilot1_or_pilot2_has_Marzo_pos)*1
+ *   + … × 8 months
+ *
+ * Run once from Apps Script:
+ *   Extensions → Apps Script → select addTeamParticipationPoints → ▶ Run
+ *
+ * Idempotent — safe to run multiple times.
+ */
+function addTeamParticipationPoints() {
+  const ss   = SpreadsheetApp.getActiveSpreadsheet();
+  const wsTS = ss.getSheetByName("Team Standings");
+  const wsDS = ss.getSheetByName("Drivers Standings");
+  if (!wsTS) {
+    SpreadsheetApp.getUi().alert('❌ Hoja "Team Standings" no encontrada.');
+    return;
+  }
+  if (!wsDS) {
+    SpreadsheetApp.getUi().alert('❌ Hoja "Drivers Standings" no encontrada.');
+    return;
+  }
+
+  // Monthly points columns + DS position offset (col B = offset 1)
+  const RACE_MONTHS = [
+    { col: "G", posOffset: 3  },  // Marzo
+    { col: "H", posOffset: 5  },  // Abril
+    { col: "I", posOffset: 7  },  // Mayo
+    { col: "J", posOffset: 9  },  // Junio
+    { col: "K", posOffset: 11 },  // Julio
+    { col: "L", posOffset: 13 },  // Agosto
+    { col: "M", posOffset: 15 },  // Septiembre
+    { col: "N", posOffset: 17 },  // Octubre
+  ];
+
+  // Detect actual DS section bounds so the VLOOKUP range is always correct
+  const dsSections = _findDataSections(wsDS);
+  if (dsSections.length < 2) {
+    SpreadsheetApp.getUi().alert("❌ No se encontraron las 2 secciones en Drivers Standings.");
+    return;
+  }
+
+  const SECTIONS = [
+    { start: TS_F1_START, end: TS_F1_END, dsStart: dsSections[0].start, dsEnd: dsSections[0].end },
+    { start: TS_F2_START, end: TS_F2_END, dsStart: dsSections[1].start, dsEnd: dsSections[1].end },
+  ];
+
+  let updated = 0;
+
+  for (const { start: sStart, end: sEnd, dsStart, dsEnd } of SECTIONS) {
+    const numRows  = sEnd - sStart + 1;
+    // VLOOKUP range in Drivers Standings for this category's pilots
+    const dsRange  = `'Drivers Standings'!$B$${dsStart}:$S$${dsEnd}`;
+
+    // Batch read team names from col B (Equipo)
+    const teams = wsTS.getRange(sStart, 2, numRows, 1).getValues();
+
+    const newFormulas = [];
+    for (let i = 0; i < numRows; i++) {
+      const team = String(teams[i][0] || "").trim();
+      const r    = sStart + i;
+      if (team) {
+        const sumPart = RACE_MONTHS.map(({ col }) => `${col}${r}`).join(";");
+
+        // Per month: +1 if either official pilot has a position > 0 in DS.
+        // Position ≥ 1 means the pilot competed (even scoring 0 race points).
+        // IFERROR returns 0 if the pilot is not found (empty seat or name mismatch).
+        const partPart = RACE_MONTHS.map(({ posOffset }) => {
+          const p1 = `IFERROR(VLOOKUP(D${r};${dsRange};${posOffset};FALSE);0)`;
+          const p2 = `IFERROR(VLOOKUP(E${r};${dsRange};${posOffset};FALSE);0)`;
+          return `((${p1}>0)+(${p2}>0)>0)*1`;
+        }).join("+");
+
+        newFormulas.push([`=SUM(${sumPart})+${partPart}`]);
+        updated++;
+      } else {
+        newFormulas.push([""]); // empty row — clear
+      }
+    }
+
+    // Batch write col F (column 6) — 1 API call per section
+    wsTS.getRange(sStart, 6, numRows, 1).setFormulas(newFormulas);
+  }
+
+  SpreadsheetApp.getUi().alert(
+    `✅ Participación de equipo actualizada en ${updated} equipos.\n` +
+    `+1 punto por carrera donde al menos un piloto OFICIAL compitió\n` +
+    `(incluyendo pilotos que terminaron últimos con 0 puntos de posición).\n` +
+    `Recuerda también correr setupTeamVariationFormulas para actualizar Var.`
+  );
+}
+
+
+// ─── Team Standings — Variation (Var) formula setup ──────────────────────────
+/**
+ * One-shot setup: writes the Var formula to column Q of Team Standings,
+ * mirroring the same logic used for Drivers Standings.
+ *
+ * Differences from the Drivers version:
+ *   • Each month has only ONE points column (G–N), no separate position column.
+ *   • Future months are represented as 0 (not empty), so the "raced?" check
+ *     uses <> 0 instead of <> "".
+ *   • No participation bonus to subtract.
+ *   • Total = col F  |  Rank = col A  |  Var = col Q (column 17).
+ *
+ * Debut guard: teams with only 1 race so far get a blank Var cell.
+ *
+ * Run once from Apps Script:
+ *   Extensions → Apps Script → select setupTeamVariationFormulas → ▶ Run
+ *
+ * Idempotent — safe to run multiple times.
+ */
+function setupTeamVariationFormulas() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName("Team Standings");
+  if (!ws) {
+    SpreadsheetApp.getUi().alert('❌ Hoja "Team Standings" no encontrada.');
+    return;
+  }
+
+  // Monthly points columns in chronological order (G=Marzo → N=Octubre)
+  const RACE_COLS = ["G","H","I","J","K","L","M","N"];
+
+  // Fixed sections (Team Standings rows don't change dynamically)
+  const SECTIONS = [
+    { start: TS_F1_START, end: TS_F1_END },
+    { start: TS_F2_START, end: TS_F2_END },
+  ];
+
+  /**
+   * Builds nested IFs for a single row so the NEWEST month (Octubre/N) is the
+   * outermost condition — checked first, falls back toward Marzo.
+   * Uses <> 0 because future months hold 0, not "".
+   */
+  function lastContribSingle(r) {
+    let f = "0";
+    for (let i = 0; i < RACE_COLS.length; i++) {   // Marzo first → Octubre last
+      const col = RACE_COLS[i];
+      // +1 accounts for the team participation bonus added by addTeamParticipationPoints
+      f = `IF(${col}${r}<>0;${col}${r}+1;${f})`;
+    }
+    return f;
+  }
+
+  /**
+   * Same but returns an element-wise array expression for use in SUMPRODUCT.
+   */
+  function lastContribArray(sStart, sEnd) {
+    let f = "0";
+    for (let i = 0; i < RACE_COLS.length; i++) {
+      const col = RACE_COLS[i];
+      // +1 accounts for the team participation bonus
+      f = `IF(${col}$${sStart}:${col}$${sEnd}<>0;${col}$${sStart}:${col}$${sEnd}+1;${f})`;
+    }
+    return f;
+  }
+
+  let updated = 0;
+
+  for (const { start: sStart, end: sEnd } of SECTIONS) {
+    const numRows = sEnd - sStart + 1;
+
+    // Batch read team names from col B (Equipo)
+    const teams = ws.getRange(sStart, 2, numRows, 1).getValues();
+
+    // Section-wide "previous points" array (reused for every row in section)
+    const prevPtsArr = `(F$${sStart}:F$${sEnd}-${lastContribArray(sStart, sEnd)})`;
+
+    const formulas = [];
+    for (let i = 0; i < numRows; i++) {
+      const team = String(teams[i][0] || "").trim();
+      const r = sStart + i;
+      if (team) {
+        // Count races with non-zero score for debut guard
+        const attendedCount = RACE_COLS.map(c => `(${c}${r}<>0)*1`).join("+");
+        const myPrevPts = `(F${r}-${lastContribSingle(r)})`;
+        // Blank if debut (≤1 race), otherwise: prev_rank − current_rank
+        const formula =
+          `=IF(${attendedCount}<=1;"";` +
+          `1+SUMPRODUCT((${prevPtsArr}>${myPrevPts})*1)-A${r})`;
+        formulas.push([formula]);
+        updated++;
+      } else {
+        formulas.push([""]); // empty row — clear
+      }
+    }
+
+    // Batch write col Q (column 17) — 1 API call per section
+    ws.getRange(sStart, 17, numRows, 1).setFormulas(formulas);
+  }
+
+  SpreadsheetApp.getUi().alert(
+    `✅ Variación de equipos configurada en ${updated} equipos.\n` +
+    `Col Q muestra el cambio de posición respecto a la carrera anterior.\n` +
+    `(+) subió posiciones  |  (−) bajó  |  0 sin cambio`
+  );
 }
 
 
@@ -243,9 +793,16 @@ function _sortTeamSection(tsSheetName, startRow, endRow, numCols, sortCol, tiebr
 function doGet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
+  // Detect F1/F2 section boundaries dynamically so the API always reflects
+  // the real sheet layout regardless of how many pilots are present.
+  const dsSheet  = ss.getSheetByName("Drivers Standings");
+  const sections = dsSheet ? _findDataSections(dsSheet) : [];
+  const f1Bounds = sections[0] || { start: DS_F1_START, end: DS_F1_END };
+  const f2Bounds = sections[1] || { start: DS_F2_START, end: DS_F2_END };
+
   const data = {
-    drivers_f1:   _getDriversStandings(ss, DS_F1_START, DS_F1_END),
-    drivers_f2:   _getDriversStandings(ss, DS_F2_START, DS_F2_END),
+    drivers_f1:   _getDriversStandings(ss, f1Bounds.start, f1Bounds.end, "F1"),
+    drivers_f2:   _getDriversStandings(ss, f2Bounds.start, f2Bounds.end, "F2"),
     teams_f1:     _getTeamStandings(ss, TS_F1_START, TS_F1_END),
     teams_f2:     _getTeamStandings(ss, TS_F2_START, TS_F2_END),
     vuelta_rapida: _getVueltaRapida(ss),
@@ -270,17 +827,26 @@ function doGet() {
 
 // ─── Data readers ─────────────────────────────────────────────────────────────
 
-function _getDriversStandings(ss, startRow, endRow) {
+/**
+ * @param {string} category  "F1" or "F2" — used to determine which pilots are
+ *   regular starters vs. reserve drivers (RDs).  A pilot who appears in this
+ *   section but is NOT registered in the Equipos sheet for this category is
+ *   flagged as is_reserve: true (e.g. an F2 pilot standing in for an F1 driver).
+ */
+function _getDriversStandings(ss, startRow, endRow, category) {
   const ws   = ss.getSheetByName("Drivers Standings");
   const rows = ws.getRange(startRow, 1, endRow - startRow + 1, DS_TOTAL_COLS).getValues();
-  // Month headers are in row 2 of the sheet (fixed structure)
   const months = ["Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre"];
+
+  // Build escudería map for regular starters in this category so we can
+  // (a) detect reserve drivers and (b) expose escudería in the API.
+  const escuderiaMap = category ? _buildEscuderiaLookup(ss, category) : {};
 
   return rows
     .filter(r => r[1] && String(r[1]).trim() !== "")
     .map(r => {
+      const pilot = String(r[1]).trim();
       const races = [];
-      // Posición/Puntos pairs start at col index 3 (D), step 2
       for (let i = 0; i < months.length; i++) {
         const pos = r[3 + i * 2];
         const pts = r[4 + i * 2];
@@ -290,9 +856,13 @@ function _getDriversStandings(ss, startRow, endRow) {
           pts:   pts !== "" ? Number(pts) : null,
         });
       }
+      const escuderia  = escuderiaMap[pilot] || "RD";
+      const isReserve  = !escuderiaMap[pilot];
       return {
         rank:        Number(r[0]),
-        pilot:       String(r[1]).trim(),
+        pilot,
+        escuderia,
+        is_reserve:  isReserve,
         total_pts:   r[2] !== "" ? Number(r[2]) : 0,
         races,
         pos_prom:    r[19] !== "" ? Number(r[19]) : null,  // col T
@@ -573,12 +1143,17 @@ function _getRaceResults(ss) {
   const ws = ss.getSheetByName("Drivers Standings");
   if (!ws) return [];
 
-  const f1Rows = ws.getRange(DS_F1_START, 1, DS_F1_END - DS_F1_START + 1, DS_TOTAL_COLS).getValues();
-  const f2Rows = ws.getRange(DS_F2_START, 1, DS_F2_END - DS_F2_START + 1, DS_TOTAL_COLS).getValues();
+  // Use dynamic section detection so results stay correct as rows are added
+  const sections = _findDataSections(ws);
+  const f1Bounds = sections[0] || { start: DS_F1_START, end: DS_F1_END };
+  const f2Bounds = sections[1] || { start: DS_F2_START, end: DS_F2_END };
+
+  const f1Rows = ws.getRange(f1Bounds.start, 1, f1Bounds.end - f1Bounds.start + 1, DS_TOTAL_COLS).getValues();
+  const f2Rows = ws.getRange(f2Bounds.start, 1, f2Bounds.end - f2Bounds.start + 1, DS_TOTAL_COLS).getValues();
 
   const escuderiaF1  = _buildEscuderiaLookup(ss, "F1");
   const escuderiaF2  = _buildEscuderiaLookup(ss, "F2");
-  const tiemposMap   = _buildTiemposLookup(ss);   // pilot → best time from Tiempos 2026
+  const tiemposMap   = _buildTiemposLookup(ss);
 
   const raceDatesArr = _getRaceDates(ss);
   const dateByMonth  = {};
@@ -594,11 +1169,12 @@ function _getRaceResults(ss) {
         .map(r => {
           const pilot = String(r[1]).trim();
           return {
-            pos:       Number(r[posColIdx]),
+            pos:        Number(r[posColIdx]),
             pilot,
-            escuderia: lookup[pilot] || "",
-            pts:       r[ptsColIdx] !== "" ? Number(r[ptsColIdx]) : null,
-            best_time: tiemposMap[pilot] || tiemposMap[pilot.toLowerCase()] || null,
+            escuderia:  lookup[pilot] || "RD",
+            is_reserve: !lookup[pilot],
+            pts:        r[ptsColIdx] !== "" ? Number(r[ptsColIdx]) : null,
+            best_time:  tiemposMap[pilot] || tiemposMap[pilot.toLowerCase()] || null,
           };
         })
         .sort((a, b) => a.pos - b.pos);

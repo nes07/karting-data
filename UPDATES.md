@@ -100,6 +100,40 @@ Recargar el sitio web. Todos los cambios (standings, resultados, VR, DOTD, media
 
 ---
 
+## Caso C: Cambio de trazado (reset de tiempos)
+
+Usar cuando cambia el layout de pista y los tiempos anteriores ya no son comparables.
+
+**Configuración actual del proyecto:** reset desde `2026-05-10`.
+
+Qué pasa con cada ranking:
+- **Drivers/Teams standings (puntos):** se mantienen igual (histórico completo).
+- **Vuelta Rápida / mejores tiempos / best_time en resultados:** se calculan solo desde la fecha de reset.
+
+### Flujo recomendado
+
+1. Cargar tiempos nuevos en **"Tiempos 2026"** (manual o `python main.py`).
+2. Reconstruir campeonato de vuelta rápida:
+
+```bash
+python fast_lap_championship.py
+```
+
+3. Reconstruir variaciones:
+
+```bash
+python variation_builder.py
+```
+
+4. Recargar la web.
+
+### Importante
+
+- Si hay pilotos sin sesiones en el nuevo trazado, aparecerán sin tiempo (`null`) o fuera del ranking VR.
+- Es esperado que en la primera fecha post-reset la variación (`Δ`) parta vacía para muchos pilotos.
+
+---
+
 ## Referencia rápida de scripts
 
 | Script | Qué hace |
