@@ -1,0 +1,235 @@
+/**
+ * Data layer: loads championship data from Supabase and computes standings
+ * with the points engine. Used by public pages (anon key, RLS public read).
+ */
+import { createClient as createSupabase } from "@supabase/supabase-js";
+import {
+  computeDriverStandings,
+  computeTeamStandings,
+} from "@/lib/scoring/engine";
+import {
+  Category,
+  ChampionshipData,
+  DEFAULT_SCORING_CONFIG,
+  DotdAward,
+  Driver,
+  DriverStandingRow,
+  Race,
+  RaceResult,
+  ScoringConfig,
+  Team,
+  TeamStandingRow,
+} from "@/lib/scoring/types";
+
+/** Sessions before this date ran on the old track layout — excluded from VR. */
+export const TRACK_RESET_DATE = "2026-05-10";
+
+function db() {
+  return createSupabase(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
+
+export interface VueltaRapidaRow {
+  rank: number;
+  alias: string;
+  time: number;
+  date: string;
+  variation: number | null; // vs ranking before the most recent session
+}
+
+export interface DotdEntry {
+  date: string;
+  monthLabel: string;
+  alias: string;
+  photoUrl: string | null;
+  category: Category;
+  reason: string | null;
+}
+
+export interface MediaEntry {
+  tipo: string;
+  titulo: string;
+  url: string;
+  fecha: string | null;
+}
+
+export interface SiteData {
+  data: ChampionshipData;
+  driversF1: DriverStandingRow[];
+  driversF2: DriverStandingRow[];
+  teamsF1: TeamStandingRow[];
+  teamsF2: TeamStandingRow[];
+  vueltaRapida: VueltaRapidaRow[];
+  dotd: DotdEntry[];
+  media: MediaEntry[];
+  raceDates: Array<{ monthLabel: string; date: string }>;
+  updatedAt: string;
+}
+
+interface LapTimeRow {
+  driver_id: string;
+  session_date: string;
+  best_time: number;
+}
+
+function computeVueltaRapida(
+  laps: LapTimeRow[],
+  aliasById: Map<string, string>
+): VueltaRapidaRow[] {
+  const eligible = laps.filter((l) => l.session_date >= TRACK_RESET_DATE);
+  if (eligible.length === 0) return [];
+
+  const rankFor = (subset: LapTimeRow[]): Map<string, number> => {
+    const best = new Map<string, { time: number; date: string }>();
+    for (const l of subset) {
+      const cur = best.get(l.driver_id);
+      if (!cur || l.best_time < cur.time) {
+        best.set(l.driver_id, { time: l.best_time, date: l.session_date });
+      }
+    }
+    const sorted = [...best.entries()].sort((a, b) => a[1].time - b[1].time);
+    return new Map(sorted.map(([id], i) => [id, i + 1]));
+  };
+
+  const latestDate = eligible.reduce(
+    (max, l) => (l.session_date > max ? l.session_date : max),
+    ""
+  );
+  const prevRanks = rankFor(eligible.filter((l) => l.session_date < latestDate));
+
+  const best = new Map<string, { time: number; date: string }>();
+  for (const l of eligible) {
+    const cur = best.get(l.driver_id);
+    if (!cur || l.best_time < cur.time) {
+      best.set(l.driver_id, { time: l.best_time, date: l.session_date });
+    }
+  }
+  return [...best.entries()]
+    .sort((a, b) => a[1].time - b[1].time)
+    .map(([driverId, b], i) => {
+      const prev = prevRanks.get(driverId);
+      return {
+        rank: i + 1,
+        alias: aliasById.get(driverId) ?? "?",
+        time: b.time,
+        date: b.date,
+        variation: prev != null ? prev - (i + 1) : null,
+      };
+    });
+}
+
+export async function loadSiteData(): Promise<SiteData> {
+  const client = db();
+
+  const [drv, tms, rcs, res, dt, lap, med, cfg] = await Promise.all([
+    client.from("drivers").select("*"),
+    client.from("teams").select("*").eq("active", true),
+    client.from("races").select("*").order("date"),
+    client.from("race_results").select("*"),
+    client.from("dotd").select("*"),
+    client.from("lap_times").select("driver_id, session_date, best_time"),
+    client.from("media").select("*").order("fecha", { ascending: false }),
+    client.from("scoring_config").select("*").single(),
+  ]);
+
+  for (const r of [drv, tms, rcs, res, dt, lap, med]) {
+    if (r.error) throw new Error(`Supabase: ${r.error.message}`);
+  }
+
+  const drivers: Driver[] = (drv.data ?? []).map((d) => ({
+    id: d.id,
+    alias: d.alias,
+    fullName: d.full_name,
+    email: d.email,
+    photoUrl: d.photo_url ?? null,
+    active: d.active,
+  }));
+  const teams: Team[] = (tms.data ?? []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    escuderia: t.escuderia,
+    category: t.category,
+    photoUrl: t.photo_url ?? null,
+    driver1Id: t.driver1_id,
+    driver2Id: t.driver2_id,
+  }));
+  const races: Race[] = (rcs.data ?? []).map((r) => ({
+    id: r.id,
+    date: r.date,
+    monthLabel: r.month_label,
+    isOfficial: r.is_official,
+  }));
+  const results: RaceResult[] = (res.data ?? []).map((r) => ({
+    raceId: r.race_id,
+    driverId: r.driver_id,
+    category: r.category,
+    position: r.position,
+    bestTime: r.best_time,
+    isReserve: r.is_reserve,
+    replacedTeamId: r.replaced_team_id,
+  }));
+  const dotdAwards: DotdAward[] = (dt.data ?? []).map((d) => ({
+    raceId: d.race_id,
+    driverId: d.driver_id,
+    category: d.category,
+  }));
+
+  const config: ScoringConfig = cfg.data
+    ? {
+        maxPoints: { F1: cfg.data.f1_max_points, F2: cfg.data.f2_max_points },
+        participationPoint: Number(cfg.data.participation_point),
+        dotdPoint: Number(cfg.data.dotd_point),
+        reserveTeamFactor: Number(cfg.data.reserve_team_factor),
+        teamParticipationPoint: Number(cfg.data.team_participation_point),
+      }
+    : DEFAULT_SCORING_CONFIG;
+
+  const data: ChampionshipData = {
+    drivers,
+    teams,
+    races,
+    results,
+    dotd: dotdAwards,
+    config,
+  };
+
+  const aliasById = new Map(drivers.map((d) => [d.id, d.alias]));
+  const driverById = new Map(drivers.map((d) => [d.id, d]));
+  const raceById = new Map(races.map((r) => [r.id, r]));
+
+  const dotdEntries: DotdEntry[] = (dt.data ?? [])
+    .map((d) => {
+      const race = raceById.get(d.race_id);
+      return {
+        date: race?.date ?? "",
+        monthLabel: race?.monthLabel ?? "",
+        alias: aliasById.get(d.driver_id) ?? "?",
+        photoUrl: driverById.get(d.driver_id)?.photoUrl ?? null,
+        category: d.category as Category,
+        reason: d.reason,
+      };
+    })
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  return {
+    data,
+    driversF1: computeDriverStandings(data, "F1"),
+    driversF2: computeDriverStandings(data, "F2"),
+    teamsF1: computeTeamStandings(data, "F1"),
+    teamsF2: computeTeamStandings(data, "F2"),
+    vueltaRapida: computeVueltaRapida((lap.data ?? []) as LapTimeRow[], aliasById),
+    dotd: dotdEntries,
+    media: (med.data ?? []).map((m) => ({
+      tipo: m.tipo,
+      titulo: m.titulo,
+      url: m.url,
+      fecha: m.fecha,
+    })),
+    raceDates: races
+      .filter((r) => r.isOfficial)
+      .map((r) => ({ monthLabel: r.monthLabel, date: r.date })),
+    updatedAt: new Date().toISOString(),
+  };
+}
