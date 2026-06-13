@@ -24,11 +24,14 @@ wheels/
 .installed.cfg
 *.egg
 
-# Datos extraídos
-*.json
-*.csv
+# Datos extraídos y credenciales (solo en la raíz; web/ tiene su propio .gitignore)
+/*.json
+/*.csv
 carrera_*.json
 carrera_*.csv
+credentials.json
+name_mapping.json
+token.json
 
 # IDE
 .vscode/
