@@ -50,15 +50,15 @@ export interface DotdAward {
 }
 
 export interface ScoringConfig {
-  /** Points for P1 per category. F1: 16, F2: 15. */
+  /** Points for P1 per category. F1: 16, F2: 16. */
   maxPoints: Record<Category, number>;
-  /** Bonus per race attended (drivers). */
+  /** Bonus per race attended, official (non-reserve) pilots only (Art. 18). */
   participationPoint: number;
-  /** Bonus per DOTD award. */
+  /** Bonus per DOTD award; adds to the driver and to their team (Art. 19). */
   dotdPoint: number;
   /** Fraction of a reserve's position points credited to the replaced team. */
   reserveTeamFactor: number;
-  /** Bonus per race in which at least one official pilot competed (teams). */
+  /** Bonus per official pilot present in a race, credited to the team (Art. 20). */
   teamParticipationPoint: number;
 }
 
@@ -86,6 +86,7 @@ export interface DriverRaceCell {
   raceId: string;
   monthLabel: string;
   position: number;
+  /** Points earned that race: position pts + participation + DOTD (folded in). */
   points: number;
   isReserve: boolean;
 }
@@ -113,7 +114,7 @@ export interface DriverStandingRow {
 export interface TeamRaceCell {
   raceId: string;
   monthLabel: string;
-  /** Official pilots' position points + reserves' half points. */
+  /** Full team points for the race: position pts + reserve halves + attendance + DOTD. */
   points: number;
   officialParticipated: boolean;
 }

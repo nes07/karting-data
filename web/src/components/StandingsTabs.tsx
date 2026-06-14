@@ -174,7 +174,7 @@ function DriversTable({
               <th key={m}>
                 {m.slice(0, 3)}
                 <br />
-                <span style={{ fontSize: "0.6rem", opacity: 0.6 }}>Pos / Pts</span>
+                <span style={{ fontSize: "0.6rem", opacity: 0.6 }}>Pos / Pts fecha</span>
               </th>
             ))}
             <th>Prom</th>

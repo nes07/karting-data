@@ -133,8 +133,26 @@ describe("driver standings", () => {
     const res = rows.find((r) => r.driverId === "res")!;
     expect(res.escuderia).toBe("RD");
     expect(res.isReserve).toBe(true);
-    // Full 15 position points + 1 participation
-    expect(res.totalPoints).toBe(16);
+    // Full 15 position points, NO participation bonus (Art. 18: invited pilots)
+    expect(res.totalPoints).toBe(15);
+    expect(res.participationPoints).toBe(0);
+  });
+
+  it("DOTD is folded into the race cell so cells sum to the total", () => {
+    const data = makeData({
+      drivers: [driver("a")],
+      races: RACES,
+      results: [
+        { raceId: "r1", driverId: "a", category: "F1", position: 1, isReserve: false },
+        { raceId: "r2", driverId: "a", category: "F1", position: 3, isReserve: false },
+      ],
+      dotd: [{ raceId: "r1", driverId: "a", category: "F1" }],
+    });
+    const a = computeDriverStandings(data, "F1").find((r) => r.driverId === "a")!;
+    // r1: 16 pos + 1 part + 1 dotd = 18; r2: 14 pos + 1 part = 15
+    const cellSum = a.races.reduce((s, c) => s + c.points, 0);
+    expect(a.races.find((c) => c.monthLabel === "Marzo")!.points).toBe(18);
+    expect(cellSum).toBe(a.totalPoints);
   });
 
   it("tiebreak: equal points -> better average position wins", () => {
@@ -195,7 +213,7 @@ describe("team standings", () => {
   ];
   const drivers = [driver("a"), driver("b"), driver("c"), driver("d"), driver("res")];
 
-  it("team points = official full points + reserve half points; participation only for officials", () => {
+  it("team points = official full points + reserve half points; +1 attendance per present official", () => {
     const results: RaceResult[] = [
       // r1: t1 both officials race; t2 fully replaced by one reserve
       { raceId: "r1", driverId: "a", category: "F1", position: 1, isReserve: false },
@@ -206,14 +224,32 @@ describe("team standings", () => {
     const rows = computeTeamStandings(data, "F1");
 
     const t1 = rows.find((r) => r.teamId === "t1")!;
-    // 16 + 1 position pts + 1 team participation
-    expect(t1.totalPoints).toBe(18);
-    expect(t1.participationPoints).toBe(1);
+    // 16 + 1 position pts + 2 attendance (both officials present, Art. 20)
+    expect(t1.totalPoints).toBe(19);
+    expect(t1.participationPoints).toBe(2);
 
     const t2 = rows.find((r) => r.teamId === "t2")!;
-    // reserve P2 = 15 pts * 0.5 = 7.5; NO participation (no official raced — BMW case)
+    // reserve P2 = 15 pts * 0.5 = 7.5; NO attendance (no official raced — BMW case)
     expect(t2.totalPoints).toBe(7.5);
     expect(t2.participationPoints).toBe(0);
+  });
+
+  it("DOTD also adds +1 to the winner's team (Art. 19)", () => {
+    const results: RaceResult[] = [
+      { raceId: "r1", driverId: "a", category: "F1", position: 1, isReserve: false },
+      { raceId: "r1", driverId: "b", category: "F1", position: 5, isReserve: false },
+    ];
+    const data = makeData({
+      drivers,
+      teams,
+      races: RACES,
+      results,
+      dotd: [{ raceId: "r1", driverId: "a", category: "F1" }],
+    });
+    const t1 = computeTeamStandings(data, "F1").find((r) => r.teamId === "t1")!;
+    // 16 (P1) + 12 (P5) + 2 attendance + 1 DOTD = 31; cells sum to total
+    expect(t1.totalPoints).toBe(31);
+    expect(t1.races.reduce((s, c) => s + c.points, 0)).toBe(31);
   });
 
   it("official finishing last with 0 points still earns team participation (Minardi case)", () => {
