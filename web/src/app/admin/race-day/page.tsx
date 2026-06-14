@@ -27,6 +27,7 @@ interface ImportedTime {
   bestTime: number | null;
   position: number | null;
   driverId: string | null;
+  category: "F1" | "F2";
 }
 interface ResultDraft {
   driverId: string;
@@ -54,6 +55,7 @@ export default function RaceDayPage() {
 
   const [sessions, setSessions] = useState<KSession[]>([]);
   const [imported, setImported] = useState<ImportedTime[]>([]);
+  const [importCat, setImportCat] = useState<"F1" | "F2">("F1");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
@@ -107,13 +109,18 @@ export default function RaceDayPage() {
       const r = await fetch(`/api/karteando?sessionId=${sessionId}`);
       const data = await r.json();
       if (!r.ok) throw new Error(data.error);
-      // Merge: keep the best (lowest) time per webName.
+      // Merge: keep the best (lowest) time per webName. Each row is tagged with
+      // the category of the heat it was imported from (importCat).
       setImported((prev) => {
         const merged = new Map(prev.map((x) => [x.webName, x]));
-        for (const row of data.results as ImportedTime[]) {
+        for (const raw of data.results as Omit<ImportedTime, "category">[]) {
+          const row: ImportedTime = { ...raw, category: importCat };
           const cur = merged.get(row.webName);
           if (!cur || (row.bestTime != null && (cur.bestTime == null || row.bestTime < cur.bestTime))) {
-            merged.set(row.webName, { ...row, driverId: cur?.driverId ?? row.driverId });
+            merged.set(row.webName, {
+              ...row,
+              driverId: cur?.driverId ?? row.driverId,
+            });
           }
         }
         return [...merged.values()];
@@ -127,36 +134,44 @@ export default function RaceDayPage() {
   }
 
   /**
-   * Prefill the positions step from the imported times: drivers whose alias
-   * was resolved get a draft row in the category where they hold an official
-   * seat, ordered by their imported position. Pure reserves (no seat) must be
-   * added manually since the session doesn't say which category they raced.
+   * Rebuild the positions draft from the imported times. Every resolved driver
+   * is placed in the category of the heat they were imported from (row.category),
+   * ordered by their imported position and renumbered 1..n per category. A driver
+   * without an official seat in that category is auto-flagged as a reserve (RD)
+   * so the admin only needs to pick which team they replaced. Unresolved rows
+   * (no driverId) are skipped until they're mapped in the times step.
    */
-  function gotoPositions() {
-    if (results.length === 0) {
-      const drafts: ResultDraft[] = [];
-      for (const cat of ["F1", "F2"] as const) {
-        const rows = imported
-          .filter((t) => t.driverId && officialIds[cat].has(t.driverId))
-          .sort(
-            (a, b) =>
-              (a.position ?? 999) - (b.position ?? 999) ||
-              (a.bestTime ?? 9999) - (b.bestTime ?? 9999)
-          );
-        rows.forEach((t, i) => {
-          drafts.push({
-            driverId: t.driverId!,
-            category: cat,
-            position: i + 1,
-            bestTime: t.bestTime,
-            isReserve: false,
-            replacedTeamId: null,
-          });
+  function buildDraftsFromImported(): ResultDraft[] {
+    const drafts: ResultDraft[] = [];
+    for (const cat of ["F1", "F2"] as const) {
+      const rows = imported
+        .filter((t) => t.driverId && t.category === cat)
+        .sort(
+          (a, b) =>
+            (a.position ?? 999) - (b.position ?? 999) ||
+            (a.bestTime ?? 9999) - (b.bestTime ?? 9999)
+        );
+      rows.forEach((t, i) => {
+        drafts.push({
+          driverId: t.driverId!,
+          category: cat,
+          position: i + 1,
+          bestTime: t.bestTime,
+          isReserve: !officialIds[cat].has(t.driverId!),
+          replacedTeamId: null,
         });
-      }
-      setResults(drafts);
+      });
     }
+    return drafts;
+  }
+
+  function gotoPositions() {
+    if (results.length === 0) setResults(buildDraftsFromImported());
     setStep(2);
+  }
+
+  function regenerateResults() {
+    setResults(buildDraftsFromImported());
   }
 
   function addResultRow(category: "F1" | "F2") {
@@ -305,6 +320,23 @@ export default function RaceDayPage() {
             {loading ? "Cargando…" : `Buscar sesiones del ${date}`}
           </button>
           {sessions.length > 0 && (
+            <div className="admin-field" style={{ marginTop: 16 }}>
+              <label>Categoría del heat que vas a importar</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {(["F1", "F2"] as const).map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    className={`admin-btn ${importCat === c ? "" : "secondary"}`}
+                    onClick={() => setImportCat(c)}
+                  >
+                    {c === "F1" ? "🏎 New Era — F1" : "🏁 Era Antigua — F2"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {sessions.length > 0 && (
             <table className="admin-table" style={{ marginTop: 16 }}>
               <thead>
                 <tr><th>Sesión</th><th>Tipo</th><th>Hora</th><th>Pilotos</th><th></th></tr>
@@ -322,7 +354,7 @@ export default function RaceDayPage() {
                         disabled={loading}
                         onClick={() => importSession(s.sessionId)}
                       >
-                        Importar
+                        Importar como {importCat}
                       </button>
                     </td>
                   </tr>
@@ -333,10 +365,10 @@ export default function RaceDayPage() {
 
           {imported.length > 0 && (
             <>
-              <h2 style={{ marginTop: 24 }}>Tiempos importados — confirma los nombres</h2>
+              <h2 style={{ marginTop: 24 }}>Tiempos importados — confirma nombres y categoría</h2>
               <table className="admin-table">
                 <thead>
-                  <tr><th>Nombre web</th><th>Mejor vuelta</th><th>Piloto GKD</th></tr>
+                  <tr><th>Nombre web</th><th>Mejor vuelta</th><th>Piloto GKD</th><th>Categoría</th></tr>
                 </thead>
                 <tbody>
                   {imported.map((t, i) => (
@@ -361,6 +393,24 @@ export default function RaceDayPage() {
                           ))}
                         </select>
                       </td>
+                      <td style={{ width: 90 }}>
+                        <select
+                          className="admin-select"
+                          value={t.category}
+                          onChange={(e) =>
+                            setImported((arr) =>
+                              arr.map((x, j) =>
+                                j === i
+                                  ? { ...x, category: e.target.value as "F1" | "F2" }
+                                  : x
+                              )
+                            )
+                          }
+                        >
+                          <option value="F1">F1</option>
+                          <option value="F2">F2</option>
+                        </select>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -379,7 +429,19 @@ export default function RaceDayPage() {
 
       {step === 2 && (
         <div className="admin-card">
-          <h2>3 · Posiciones finales {isOfficial ? "" : "(fecha no oficial — opcional)"}</h2>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+            <h2>3 · Posiciones finales {isOfficial ? "" : "(fecha no oficial — opcional)"}</h2>
+            {imported.some((t) => t.driverId) && (
+              <button
+                className="admin-btn secondary"
+                type="button"
+                onClick={regenerateResults}
+                title="Reconstruye las filas desde los tiempos importados (sobrescribe cambios manuales)"
+              >
+                ↻ Regenerar desde tiempos importados
+              </button>
+            )}
+          </div>
           {(["F1", "F2"] as const).map((cat) => (
             <div key={cat} style={{ marginBottom: 24 }}>
               <h2 style={{ color: "var(--gold)" }}>
