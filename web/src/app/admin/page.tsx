@@ -17,6 +17,11 @@ const CARDS = [
     desc: "Crea la votación con nominados y razones; la gente vota en /votar y aplicas el ganador.",
   },
   {
+    href: "/admin/penalties",
+    title: "⚑ Penalizaciones",
+    desc: "Aplica o elimina penalizaciones post-carrera (Art. 23–24). Se descuentan al piloto y a su equipo.",
+  },
+  {
     href: "/admin/practice",
     title: "⏱ Tiempos de Práctica",
     desc: "Importa tiempos de fechas NO oficiales (solo alimentan Vuelta Rápida).",

@@ -5,8 +5,10 @@ import { RaceResults } from "@/components/RaceResults";
 import {
   DotdSection,
   MediaSection,
+  PenaltiesSection,
   PilotsSection,
   TeamsSection,
+  TrazadoSection,
 } from "@/components/Sections";
 import { loadSiteData } from "@/lib/data";
 
@@ -113,8 +115,10 @@ export default async function Home() {
         </div>
       </section>
 
-      <MediaSection media={site.media} />
       <DotdSection entries={site.dotd} />
+      <PenaltiesSection entries={site.penalties} />
+      <TrazadoSection />
+      <MediaSection media={site.media} />
 
       <footer className="footer">
         <div className="container">

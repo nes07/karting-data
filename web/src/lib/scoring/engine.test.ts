@@ -4,6 +4,7 @@ import {
   ChampionshipData,
   DEFAULT_SCORING_CONFIG,
   Driver,
+  Penalty,
   Race,
   RaceResult,
   Team,
@@ -22,6 +23,7 @@ function makeData(partial: Partial<ChampionshipData>): ChampionshipData {
     races: [],
     results: [],
     dotd: [],
+    penalties: [],
     config,
     ...partial,
   };
@@ -283,5 +285,86 @@ describe("team standings", () => {
     expect(t2.variation).toBe(1);
     expect(t1.rank).toBe(2);
     expect(t1.variation).toBe(-1);
+  });
+});
+
+describe("penalties (Art. 23–24)", () => {
+  const team: Team = {
+    id: "t1", name: "Equipo 1", escuderia: "Ferrari", category: "F1",
+    driver1Id: "a", driver2Id: "b",
+  };
+  const drv = [
+    { id: "a", alias: "A", active: true },
+    { id: "b", alias: "B", active: true },
+    { id: "res", alias: "RES", active: true },
+  ];
+
+  it("penalty reduces driver total and is visible in cell penaltyPoints", () => {
+    const penalty: Penalty = { raceId: "r1", driverId: "a", category: "F1", level: "leve", points: -1 };
+    const data = makeData({
+      drivers: drv, teams: [team], races: RACES,
+      results: [{ raceId: "r1", driverId: "a", category: "F1", position: 1, isReserve: false }],
+      penalties: [penalty],
+    });
+    const a = computeDriverStandings(data, "F1").find((r) => r.driverId === "a")!;
+    // P1=16, part=1, pen=-1 → 16
+    expect(a.totalPoints).toBe(16);
+    expect(a.penaltyPoints).toBe(-1);
+    expect(a.races[0].penaltyPoints).toBe(-1);
+    // cell.points folds everything
+    expect(a.races[0].points).toBe(16);
+  });
+
+  it("penalty also reduces team total in the matching race cell", () => {
+    const penalty: Penalty = { raceId: "r1", driverId: "a", category: "F1", level: "media", points: -2 };
+    const data = makeData({
+      drivers: drv, teams: [team], races: RACES,
+      results: [
+        { raceId: "r1", driverId: "a", category: "F1", position: 1, isReserve: false },
+        { raceId: "r1", driverId: "b", category: "F1", position: 2, isReserve: false },
+      ],
+      penalties: [penalty],
+    });
+    const t1 = computeTeamStandings(data, "F1").find((r) => r.teamId === "t1")!;
+    // 16 + 15 pos + 2 attendance − 2 penalty = 31
+    expect(t1.totalPoints).toBe(31);
+    expect(t1.penaltyPoints).toBe(-2);
+    expect(t1.races[0].penaltyPoints).toBe(-2);
+  });
+
+  it("suplente penalty does NOT reduce any team (Art. 23: no official seat)", () => {
+    const penalty: Penalty = { raceId: "r1", driverId: "res", category: "F1", level: "grave", points: -3 };
+    const data = makeData({
+      drivers: drv, teams: [team], races: RACES,
+      results: [
+        { raceId: "r1", driverId: "a", category: "F1", position: 1, isReserve: false },
+        { raceId: "r1", driverId: "res", category: "F1", position: 3, isReserve: true, replacedTeamId: "t1" },
+      ],
+      penalties: [penalty],
+    });
+    const t1 = computeTeamStandings(data, "F1").find((r) => r.teamId === "t1")!;
+    // team gets: 16 (a) + 14*0.5 (res half) + 1 attendance (only a is official) = 24; no team penalty
+    expect(t1.penaltyPoints).toBe(0);
+    // reserve individual loses 3 pts: 14 pos − 3 pen = 11 (no participation since RD)
+    const res = computeDriverStandings(data, "F1").find((r) => r.driverId === "res")!;
+    expect(res.totalPoints).toBe(11);
+    expect(res.penaltyPoints).toBe(-3);
+  });
+
+  it("multiple penalties in the same race accumulate", () => {
+    const penalties: Penalty[] = [
+      { raceId: "r1", driverId: "a", category: "F1", level: "leve",  points: -1 },
+      { raceId: "r1", driverId: "a", category: "F1", level: "media", points: -2 },
+    ];
+    const data = makeData({
+      drivers: drv, teams: [team], races: RACES,
+      results: [{ raceId: "r1", driverId: "a", category: "F1", position: 1, isReserve: false }],
+      penalties,
+    });
+    const a = computeDriverStandings(data, "F1").find((r) => r.driverId === "a")!;
+    // 16 + 1 part − 3 total pen = 14
+    expect(a.penaltyPoints).toBe(-3);
+    expect(a.totalPoints).toBe(14);
+    expect(a.races[0].penaltyPoints).toBe(-3);
   });
 });

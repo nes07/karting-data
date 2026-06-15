@@ -27,6 +27,7 @@ import {
   DotdAward,
   DriverRaceCell,
   DriverStandingRow,
+  Penalty,
   Race,
   RaceResult,
   ScoringConfig,
@@ -68,6 +69,7 @@ interface DriverAggregate {
   positionPoints: number;
   participationPoints: number;
   dotdPoints: number;
+  penaltyPoints: number;
   totalPoints: number;
   posProm: number | null;
   bestTime: number | null;
@@ -80,6 +82,7 @@ function emptyAggregate(driverId: string): DriverAggregate {
     positionPoints: 0,
     participationPoints: 0,
     dotdPoints: 0,
+    penaltyPoints: 0,
     totalPoints: 0,
     posProm: null,
     bestTime: null,
@@ -90,6 +93,7 @@ function aggregateDrivers(
   races: Race[],
   results: RaceResult[],
   dotd: DotdAward[],
+  penalties: Penalty[],
   teams: Team[],
   category: Category,
   config: ScoringConfig
@@ -103,6 +107,15 @@ function aggregateDrivers(
   for (const d of dotd) {
     if (d.category === category && raceOrder.has(d.raceId)) {
       dotdByDriverRace.add(`${d.driverId}|${d.raceId}`);
+    }
+  }
+
+  // Penalty deductions in scope, summed per "driverId|raceId" (multiple allowed).
+  const penaltyByDriverRace = new Map<string, number>();
+  for (const p of penalties) {
+    if (p.category === category && raceOrder.has(p.raceId)) {
+      const key = `${p.driverId}|${p.raceId}`;
+      penaltyByDriverRace.set(key, (penaltyByDriverRace.get(key) ?? 0) + p.points);
     }
   }
 
@@ -132,17 +145,21 @@ function aggregateDrivers(
     const dotdPts = dotdByDriverRace.has(`${res.driverId}|${res.raceId}`)
       ? config.dotdPoint
       : 0;
+    // Art. 23: penalty deductions (negative value, 0 if none).
+    const penPts = penaltyByDriverRace.get(`${res.driverId}|${res.raceId}`) ?? 0;
 
     agg.cells.push({
       raceId: res.raceId,
       monthLabel: race.monthLabel,
       position: res.position,
-      points: posPts + partPts + dotdPts,
+      points: posPts + partPts + dotdPts + penPts,
       isReserve: res.isReserve,
+      penaltyPoints: penPts,
     });
     agg.positionPoints += posPts;
     agg.participationPoints += partPts;
     agg.dotdPoints += dotdPts;
+    agg.penaltyPoints += penPts;
     if (res.bestTime != null) {
       agg.bestTime =
         agg.bestTime == null ? res.bestTime : Math.min(agg.bestTime, res.bestTime);
@@ -154,7 +171,7 @@ function aggregateDrivers(
       (a, b) => raceOrder.get(a.raceId)! - raceOrder.get(b.raceId)!
     );
     agg.totalPoints =
-      agg.positionPoints + agg.participationPoints + agg.dotdPoints;
+      agg.positionPoints + agg.participationPoints + agg.dotdPoints + agg.penaltyPoints;
     agg.posProm =
       agg.cells.length > 0
         ? agg.cells.reduce((s, c) => s + c.position, 0) / agg.cells.length
@@ -191,10 +208,10 @@ export function computeDriverStandings(
   data: ChampionshipData,
   category: Category
 ): DriverStandingRow[] {
-  const { drivers, teams, results, dotd, config } = data;
+  const { drivers, teams, results, dotd, penalties, config } = data;
   const races = completedRaces(data.races, results, category);
 
-  const current = aggregateDrivers(races, results, dotd, teams, category, config);
+  const current = aggregateDrivers(races, results, dotd, penalties, teams, category, config);
   const currentRanks = rankMap(current);
 
   // Previous standings: exclude the latest completed race entirely.
@@ -204,6 +221,7 @@ export function computeDriverStandings(
     prevRaces,
     results.filter((r) => prevRaceIds.has(r.raceId)),
     dotd.filter((d) => prevRaceIds.has(d.raceId)),
+    penalties.filter((p) => prevRaceIds.has(p.raceId)),
     teams,
     category,
     config
@@ -235,6 +253,7 @@ export function computeDriverStandings(
       positionPoints: agg.positionPoints,
       participationPoints: agg.participationPoints,
       dotdPoints: agg.dotdPoints,
+      penaltyPoints: agg.penaltyPoints,
       races: agg.cells,
       posProm: agg.posProm,
       bestTime: agg.bestTime,
@@ -256,6 +275,7 @@ interface TeamAggregate {
   totalPoints: number;
   posProm: number | null;
   bestTime: number | null;
+  penaltyPoints: number;
 }
 
 function aggregateTeams(
@@ -263,6 +283,7 @@ function aggregateTeams(
   races: Race[],
   results: RaceResult[],
   dotd: DotdAward[],
+  penalties: Penalty[],
   category: Category,
   config: ScoringConfig
 ): Map<string, TeamAggregate> {
@@ -286,6 +307,17 @@ function aggregateTeams(
     teamDotd.set(key, (teamDotd.get(key) ?? 0) + config.dotdPoint);
   }
 
+  // Penalty deductions per "teamId|raceId" (Art. 23: also to the pilot's team).
+  // Suplentes have no official seat here so they don't affect any team.
+  const teamPenalty = new Map<string, number>();
+  for (const p of penalties) {
+    if (p.category !== category || !raceOrder.has(p.raceId)) continue;
+    const teamId = teamByDriver.get(p.driverId);
+    if (!teamId) continue; // suplente: only affects individual standing
+    const key = `${teamId}|${p.raceId}`;
+    teamPenalty.set(key, (teamPenalty.get(key) ?? 0) + p.points);
+  }
+
   const byTeam = new Map<string, TeamAggregate>(
     categoryTeams.map((t) => [
       t.id,
@@ -297,6 +329,7 @@ function aggregateTeams(
         totalPoints: 0,
         posProm: null,
         bestTime: null,
+        penaltyPoints: 0,
       },
     ])
   );
@@ -335,13 +368,16 @@ function aggregateTeams(
       const raceHappened = raceResults.length > 0;
       if (raceHappened) {
         // Art. 18/20: +1 per official present. Art. 19: +1 if a member won DOTD.
+        // Art. 23: subtract penalty for official pilots.
         const attendance = officialsPresent * config.teamParticipationPoint;
         const dotdBonus = teamDotd.get(`${team.id}|${race.id}`) ?? 0;
+        const penDeduct = teamPenalty.get(`${team.id}|${race.id}`) ?? 0;
         agg.cells.push({
           raceId: race.id,
           monthLabel: race.monthLabel,
-          points: racePoints + attendance + dotdBonus,
+          points: racePoints + attendance + dotdBonus + penDeduct,
           officialParticipated: officialsPresent > 0,
+          penaltyPoints: penDeduct,
         });
         agg.pointsFromRaces += racePoints;
         agg.participationPoints += attendance;
@@ -369,9 +405,10 @@ function aggregateTeams(
       positions.length > 0
         ? positions.reduce((s, p) => s + p, 0) / positions.length
         : null;
-    // Total = position points + reserve halves + attendance + DOTD. Cells already
-    // fold every per-race bonus, so summing them keeps total == sum of columns.
+    // Total = position points + reserve halves + attendance + DOTD − penalties. Cells
+    // fold every per-race bonus/deduction, so summing them keeps total == sum of columns.
     agg.totalPoints = agg.cells.reduce((s, c) => s + c.points, 0);
+    agg.penaltyPoints = agg.cells.reduce((s, c) => s + c.penaltyPoints, 0);
   }
 
   return byTeam;
@@ -381,10 +418,10 @@ export function computeTeamStandings(
   data: ChampionshipData,
   category: Category
 ): TeamStandingRow[] {
-  const { drivers, teams, results, dotd, config } = data;
+  const { drivers, teams, results, dotd, penalties, config } = data;
   const races = completedRaces(data.races, results, category);
 
-  const current = aggregateTeams(teams, races, results, dotd, category, config);
+  const current = aggregateTeams(teams, races, results, dotd, penalties, category, config);
   const currentRanks = rankMap(current);
 
   const prevRaces = races.slice(0, -1);
@@ -394,6 +431,7 @@ export function computeTeamStandings(
     prevRaces,
     results.filter((r) => prevRaceIds.has(r.raceId)),
     dotd.filter((d) => prevRaceIds.has(d.raceId)),
+    penalties.filter((p) => prevRaceIds.has(p.raceId)),
     category,
     config
   );
@@ -415,6 +453,7 @@ export function computeTeamStandings(
       driver2Alias: team.driver2Id ? aliasById.get(team.driver2Id) ?? null : null,
       totalPoints: agg.totalPoints,
       participationPoints: agg.participationPoints,
+      penaltyPoints: agg.penaltyPoints,
       races: agg.cells,
       posProm: agg.posProm,
       bestTime: agg.bestTime,

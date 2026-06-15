@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import { CONSTRUCTOR_COLORS, CATEGORY_LABELS, teamLogoUrl } from "@/lib/constants";
-import { DotdEntry, MediaEntry } from "@/lib/data";
+import { DotdEntry, MediaEntry, PenaltyEntry } from "@/lib/data";
 import { ChampionshipData, DriverStandingRow } from "@/lib/scoring/types";
 import { PilotPlaceholder } from "./Badges";
 import { fmtPts, formatLongDate } from "./format";
@@ -331,6 +331,90 @@ export function MediaSection({ media }: { media: MediaEntry[] }) {
             </div>
           </div>
         )}
+      </div>
+    </section>
+  );
+}
+
+const LEVEL_LABELS: Record<string, string> = {
+  leve:      "Leve",
+  media:     "Media",
+  grave:     "Grave",
+  gravisima: "Gravísima",
+};
+
+export function PenaltiesSection({ entries }: { entries: PenaltyEntry[] }) {
+  return (
+    <section className="section" id="penalizaciones">
+      <div className="container">
+        <div className="section-header">
+          <h2 className="section-title">Penalizaciones</h2>
+          <p className="section-sub">
+            Sanciones oficiales aplicadas post-carrera (Art. 23–24).
+          </p>
+        </div>
+        {entries.length === 0 ? (
+          <p style={{ color: "var(--gray)", textAlign: "center", padding: "24px 0" }}>
+            No hay penalizaciones registradas.
+          </p>
+        ) : (
+          <div className="standings-table-wrap">
+            <table className="standings-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Cat</th>
+                  <th>Piloto</th>
+                  <th>Nivel</th>
+                  <th>Puntos</th>
+                  <th>Razón</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map((e, i) => (
+                  <tr key={i}>
+                    <td className="pts-small">{e.monthLabel}</td>
+                    <td className="pts-small">{e.category}</td>
+                    <td className="pilot-cell">{e.alias}</td>
+                    <td>
+                      <span className="penalty-level-badge" data-level={e.level}>
+                        {LEVEL_LABELS[e.level] ?? e.level}
+                      </span>
+                    </td>
+                    <td style={{ color: "var(--red)", fontWeight: 700 }}>
+                      {e.points}
+                    </td>
+                    <td style={{ color: "var(--gray)", fontSize: "0.85rem" }}>
+                      {e.reason ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+export function TrazadoSection() {
+  return (
+    <section className="section" id="trazado">
+      <div className="container">
+        <div className="section-header">
+          <h2 className="section-title">Trazado</h2>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+          <img
+            src="/trazado.png"
+            alt="Trazado GKD #02-2026"
+            style={{ width: "100%", maxWidth: 680, borderRadius: 12, display: "block" }}
+          />
+          <p style={{ color: "var(--gray)", fontSize: "0.85rem", margin: 0 }}>
+            Trazado #02-2026
+          </p>
+        </div>
       </div>
     </section>
   );

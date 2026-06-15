@@ -49,6 +49,27 @@ export interface DotdAward {
   category: Category;
 }
 
+/** Penalty levels as stored in the DB enum. */
+export type PenaltyLevel = "leve" | "media" | "grave" | "gravisima";
+
+/** Points deducted per level (always negative). */
+export const PENALTY_POINTS: Record<PenaltyLevel, number> = {
+  leve:      -1,
+  media:     -2,
+  grave:     -3,
+  gravisima: -4,
+};
+
+export interface Penalty {
+  raceId: string;
+  driverId: string;
+  category: Category;
+  /** Deduction in points (negative number, e.g. −1 for leve). */
+  points: number;
+  level: PenaltyLevel;
+  reason?: string | null;
+}
+
 export interface ScoringConfig {
   /** Points for P1 per category. F1: 16, F2: 16. */
   maxPoints: Record<Category, number>;
@@ -79,6 +100,7 @@ export interface ChampionshipData {
   races: Race[];
   results: RaceResult[];
   dotd: DotdAward[];
+  penalties: Penalty[];
   config: ScoringConfig;
 }
 
@@ -86,9 +108,11 @@ export interface DriverRaceCell {
   raceId: string;
   monthLabel: string;
   position: number;
-  /** Points earned that race: position pts + participation + DOTD (folded in). */
+  /** Points earned that race: position pts + participation + DOTD − penalty (folded in). */
   points: number;
   isReserve: boolean;
+  /** Total penalty deducted this race (0 if none, negative if penalized). */
+  penaltyPoints: number;
 }
 
 export interface DriverStandingRow {
@@ -102,6 +126,8 @@ export interface DriverStandingRow {
   positionPoints: number;
   participationPoints: number;
   dotdPoints: number;
+  /** Total penalty deductions this season (negative or 0). */
+  penaltyPoints: number;
   races: DriverRaceCell[];
   /** Average finishing position across attended races (tiebreaker 1). */
   posProm: number | null;
@@ -114,9 +140,11 @@ export interface DriverStandingRow {
 export interface TeamRaceCell {
   raceId: string;
   monthLabel: string;
-  /** Full team points for the race: position pts + reserve halves + attendance + DOTD. */
+  /** Full team points for the race: position pts + reserve halves + attendance + DOTD − penalty. */
   points: number;
   officialParticipated: boolean;
+  /** Total penalty deducted this race (0 if none, negative if penalized). */
+  penaltyPoints: number;
 }
 
 export interface TeamStandingRow {
@@ -128,6 +156,8 @@ export interface TeamStandingRow {
   driver2Alias: string | null;
   totalPoints: number;
   participationPoints: number;
+  /** Total penalty deductions this season (negative or 0). */
+  penaltyPoints: number;
   races: TeamRaceCell[];
   posProm: number | null;
   bestTime: number | null;

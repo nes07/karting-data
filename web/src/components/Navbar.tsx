@@ -7,8 +7,10 @@ const LINKS = [
   ["#equipos", "Equipos"],
   ["#standings", "Standings"],
   ["#results", "Resultados"],
-  ["#media", "Media"],
   ["#dotd", "Driver of the Day"],
+  ["#penalizaciones", "Penalizaciones"],
+  ["#trazado", "Trazado"],
+  ["#media", "Media"],
   ["/votar", "🗳 Votar"],
 ] as const;
 

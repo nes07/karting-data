@@ -200,7 +200,14 @@ function DriversTable({
                   const r = byMonth.get(m);
                   return (
                     <td key={m} className={`pos-cell ${r ? "has-value" : ""}`}>
-                      {r ? `${r.position} / ${r.points}` : "—"}
+                      {r ? (
+                        <>
+                          {r.position} / {r.points}
+                          {r.penaltyPoints < 0 && (
+                            <span className="penalty-badge">{r.penaltyPoints}</span>
+                          )}
+                        </>
+                      ) : "—"}
                     </td>
                   );
                 })}
@@ -271,7 +278,14 @@ function TeamsTable({
                   const r = byMonth.get(m);
                   return (
                     <td key={m} className="pts-small">
-                      {r ? fmtPts(r.points) : "—"}
+                      {r ? (
+                        <>
+                          {fmtPts(r.points)}
+                          {r.penaltyPoints < 0 && (
+                            <span className="penalty-badge">{r.penaltyPoints}</span>
+                          )}
+                        </>
+                      ) : "—"}
                     </td>
                   );
                 })}

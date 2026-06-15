@@ -14,6 +14,9 @@ import {
   DotdAward,
   Driver,
   DriverStandingRow,
+  Penalty,
+  PENALTY_POINTS,
+  PenaltyLevel,
   Race,
   RaceResult,
   ScoringConfig,
@@ -55,6 +58,17 @@ export interface MediaEntry {
   fecha: string | null;
 }
 
+export interface PenaltyEntry {
+  date: string;
+  monthLabel: string;
+  alias: string;
+  category: Category;
+  level: PenaltyLevel;
+  /** Deduction (negative, e.g. −1). */
+  points: number;
+  reason: string | null;
+}
+
 export interface SiteData {
   data: ChampionshipData;
   driversF1: DriverStandingRow[];
@@ -63,6 +77,7 @@ export interface SiteData {
   teamsF2: TeamStandingRow[];
   vueltaRapida: VueltaRapidaRow[];
   dotd: DotdEntry[];
+  penalties: PenaltyEntry[];
   media: MediaEntry[];
   raceDates: Array<{ monthLabel: string; date: string }>;
   updatedAt: string;
@@ -123,18 +138,19 @@ function computeVueltaRapida(
 export async function loadSiteData(): Promise<SiteData> {
   const client = db();
 
-  const [drv, tms, rcs, res, dt, lap, med, cfg] = await Promise.all([
+  const [drv, tms, rcs, res, dt, pen, lap, med, cfg] = await Promise.all([
     client.from("drivers").select("*"),
     client.from("teams").select("*").eq("active", true),
     client.from("races").select("*").order("date"),
     client.from("race_results").select("*"),
     client.from("dotd").select("*"),
+    client.from("penalties").select("*").order("created_at"),
     client.from("lap_times").select("driver_id, session_date, best_time"),
     client.from("media").select("*").order("fecha", { ascending: false }),
     client.from("scoring_config").select("*").single(),
   ]);
 
-  for (const r of [drv, tms, rcs, res, dt, lap, med]) {
+  for (const r of [drv, tms, rcs, res, dt, pen, lap, med]) {
     if (r.error) throw new Error(`Supabase: ${r.error.message}`);
   }
 
@@ -176,6 +192,15 @@ export async function loadSiteData(): Promise<SiteData> {
     category: d.category,
   }));
 
+  const penaltyItems: Penalty[] = (pen.data ?? []).map((p) => ({
+    raceId: p.race_id,
+    driverId: p.driver_id,
+    category: p.category as Category,
+    level: p.level as PenaltyLevel,
+    points: PENALTY_POINTS[p.level as PenaltyLevel],
+    reason: p.reason ?? null,
+  }));
+
   const config: ScoringConfig = cfg.data
     ? {
         maxPoints: { F1: cfg.data.f1_max_points, F2: cfg.data.f2_max_points },
@@ -192,12 +217,28 @@ export async function loadSiteData(): Promise<SiteData> {
     races,
     results,
     dotd: dotdAwards,
+    penalties: penaltyItems,
     config,
   };
 
   const aliasById = new Map(drivers.map((d) => [d.id, d.alias]));
   const driverById = new Map(drivers.map((d) => [d.id, d]));
   const raceById = new Map(races.map((r) => [r.id, r]));
+
+  const penaltyEntries: PenaltyEntry[] = (pen.data ?? [])
+    .map((p) => {
+      const race = raceById.get(p.race_id);
+      return {
+        date: race?.date ?? "",
+        monthLabel: race?.monthLabel ?? "",
+        alias: aliasById.get(p.driver_id) ?? "?",
+        category: p.category as Category,
+        level: p.level as PenaltyLevel,
+        points: PENALTY_POINTS[p.level as PenaltyLevel],
+        reason: p.reason ?? null,
+      };
+    })
+    .sort((a, b) => b.date.localeCompare(a.date));
 
   const dotdEntries: DotdEntry[] = (dt.data ?? [])
     .map((d) => {
@@ -221,6 +262,7 @@ export async function loadSiteData(): Promise<SiteData> {
     teamsF2: computeTeamStandings(data, "F2"),
     vueltaRapida: computeVueltaRapida((lap.data ?? []) as LapTimeRow[], aliasById),
     dotd: dotdEntries,
+    penalties: penaltyEntries,
     media: (med.data ?? []).map((m) => ({
       tipo: m.tipo,
       titulo: m.titulo,

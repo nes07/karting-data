@@ -356,6 +356,7 @@ function parse(snap: Snapshot): Parsed {
     races,
     results,
     dotd,
+    penalties: [],
     config: DEFAULT_SCORING_CONFIG,
     sheetDriverTotals,
     sheetTeamTotals,
