@@ -407,7 +407,7 @@ export function TrazadoSection() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
           <img
-            src="/trazado.png"
+            src="/trazado.jpeg"
             alt="Trazado GKD #02-2026"
             style={{ width: "100%", maxWidth: 680, borderRadius: 12, display: "block" }}
           />

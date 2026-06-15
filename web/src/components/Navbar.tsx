@@ -7,7 +7,7 @@ const LINKS = [
   ["#equipos", "Equipos"],
   ["#standings", "Standings"],
   ["#results", "Resultados"],
-  ["#dotd", "Driver of the Day"],
+  ["#dotd", "DOTD"],
   ["#penalizaciones", "Penalizaciones"],
   ["#trazado", "Trazado"],
   ["#media", "Media"],
