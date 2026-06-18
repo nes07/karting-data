@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { dedupeLapTimes } from "@/lib/lap-times";
 
 type Category = "F1" | "F2";
 
@@ -179,16 +180,19 @@ export default function RacesAdminPage() {
         if (ins.error) throw new Error(ins.error.message);
 
         // Keep Vuelta Rápida in sync — it reads lap_times, not race_results.
-        const withTime = clean.filter((r) => r.bestTime != null);
-        if (withTime.length > 0) {
-          const lt = await supabase.from("lap_times").upsert(
-            withTime.map((r) => ({
-              driver_id: r.driverId,
-              session_date: editing.date,
-              best_time: r.bestTime!,
-            })),
-            { onConflict: "driver_id,session_date" }
-          );
+        const lapRows = dedupeLapTimes(
+          clean
+            .filter((r) => r.bestTime != null)
+            .map((r) => ({ driverId: r.driverId, bestTime: r.bestTime! }))
+        ).map((r) => ({
+          driver_id: r.driverId,
+          session_date: editing.date,
+          best_time: r.bestTime,
+        }));
+        if (lapRows.length > 0) {
+          const lt = await supabase.from("lap_times").upsert(lapRows, {
+            onConflict: "driver_id,session_date",
+          });
           if (lt.error) throw new Error(lt.error.message);
         }
       }

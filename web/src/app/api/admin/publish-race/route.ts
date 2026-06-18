@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAdminUser } from "@/lib/admin";
+import { dedupeLapTimes } from "@/lib/lap-times";
 
 interface PublishBody {
   date: string; // ISO
@@ -95,14 +96,14 @@ export async function POST(request: Request) {
 
   // 4. Lap times (best per driver for the session date)
   if (body.lapTimes.length > 0) {
-    const { error } = await supabase.from("lap_times").upsert(
-      body.lapTimes.map((l) => ({
-        driver_id: l.driverId,
-        session_date: body.date,
-        best_time: l.bestTime,
-      })),
-      { onConflict: "driver_id,session_date" }
-    );
+    const lapRows = dedupeLapTimes(body.lapTimes).map((l) => ({
+      driver_id: l.driverId,
+      session_date: body.date,
+      best_time: l.bestTime,
+    }));
+    const { error } = await supabase.from("lap_times").upsert(lapRows, {
+      onConflict: "driver_id,session_date",
+    });
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }

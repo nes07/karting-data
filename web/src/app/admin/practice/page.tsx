@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { dedupeLapTimes } from "@/lib/lap-times";
 
 interface DriverOpt {
   id: string;
@@ -81,14 +82,16 @@ export default function PracticePage() {
     setMsg(null);
     try {
       const rows = imported.filter((t) => t.driverId && t.bestTime != null);
-      const { error } = await supabase.from("lap_times").upsert(
-        rows.map((t) => ({
-          driver_id: t.driverId!,
-          session_date: date,
-          best_time: t.bestTime!,
-        })),
-        { onConflict: "driver_id,session_date" }
-      );
+      const lapRows = dedupeLapTimes(
+        rows.map((t) => ({ driverId: t.driverId!, bestTime: t.bestTime! }))
+      ).map((t) => ({
+        driver_id: t.driverId,
+        session_date: date,
+        best_time: t.bestTime,
+      }));
+      const { error } = await supabase.from("lap_times").upsert(lapRows, {
+        onConflict: "driver_id,session_date",
+      });
       if (error) throw new Error(error.message);
 
       const { error: mapErr } = await supabase.from("name_mappings").upsert(

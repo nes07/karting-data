@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { dedupeLapTimes } from "@/lib/lap-times";
 
 interface DriverOpt {
   id: string;
@@ -235,9 +236,11 @@ export default function RaceDayPage() {
 
       // Vuelta Rápida reads lap_times — derive from every published result that
       // has a time, not from imported alone (suplentes added in step 3 were missed).
-      const lapTimes = finalResults
-        .filter((r) => r.driverId && r.bestTime != null)
-        .map((r) => ({ driverId: r.driverId, bestTime: r.bestTime! }));
+      const lapTimes = dedupeLapTimes(
+        finalResults
+          .filter((r) => r.driverId && r.bestTime != null)
+          .map((r) => ({ driverId: r.driverId, bestTime: r.bestTime! }))
+      );
 
       const r = await fetch("/api/admin/publish-race", {
         method: "POST",
