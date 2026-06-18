@@ -177,6 +177,20 @@ export default function RacesAdminPage() {
           }))
         );
         if (ins.error) throw new Error(ins.error.message);
+
+        // Keep Vuelta Rápida in sync — it reads lap_times, not race_results.
+        const withTime = clean.filter((r) => r.bestTime != null);
+        if (withTime.length > 0) {
+          const lt = await supabase.from("lap_times").upsert(
+            withTime.map((r) => ({
+              driver_id: r.driverId,
+              session_date: editing.date,
+              best_time: r.bestTime!,
+            })),
+            { onConflict: "driver_id,session_date" }
+          );
+          if (lt.error) throw new Error(lt.error.message);
+        }
       }
 
       const delDotd = await supabase.from("dotd").delete().eq("race_id", editing.id);
@@ -301,6 +315,7 @@ export default function RacesAdminPage() {
                   <tr>
                     <th>Pos</th>
                     <th>Piloto</th>
+                    <th>Mejor vuelta</th>
                     <th>Suplente</th>
                     <th>Reemplaza a</th>
                     <th></th>
@@ -337,6 +352,22 @@ export default function RacesAdminPage() {
                               <option key={d.id} value={d.id}>{d.alias}</option>
                             ))}
                           </select>
+                        </td>
+                        <td style={{ width: 100 }}>
+                          <input
+                            type="number"
+                            step="0.001"
+                            min={0}
+                            className="admin-input"
+                            style={{ width: 90 }}
+                            placeholder="seg"
+                            value={r.bestTime ?? ""}
+                            onChange={(e) =>
+                              patchResult(i, {
+                                bestTime: e.target.value ? Number(e.target.value) : null,
+                              })
+                            }
+                          />
                         </td>
                         <td style={{ textAlign: "center" }}>{r.isReserve ? "Sí (RD)" : "—"}</td>
                         <td>

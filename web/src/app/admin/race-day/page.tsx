@@ -166,7 +166,14 @@ export default function RaceDayPage() {
   }
 
   function gotoPositions() {
-    if (results.length === 0) setResults(buildDraftsFromImported());
+    // Always rebuild from imported times when we have resolved drivers, so suplentes
+    // added or mapped in step 2 are not skipped (stale results from a prior attempt
+    // used to leave reserves out entirely).
+    if (imported.some((t) => t.driverId)) {
+      setResults(buildDraftsFromImported());
+    } else if (results.length === 0) {
+      setResults([]);
+    }
     setStep(2);
   }
 
@@ -196,9 +203,6 @@ export default function RaceDayPage() {
     setLoading(true);
     setMsg(null);
     try {
-      const lapTimes = imported
-        .filter((t) => t.driverId && t.bestTime != null)
-        .map((t) => ({ driverId: t.driverId!, bestTime: t.bestTime! }));
       const newMappings = imported
         .filter((t) => t.driverId)
         .map((t) => ({ webName: t.webName, driverId: t.driverId! }));
@@ -224,6 +228,17 @@ export default function RaceDayPage() {
         imported.filter((t) => t.driverId).map((t) => [t.driverId!, t.bestTime])
       );
 
+      const finalResults = results.map((x) => ({
+        ...x,
+        bestTime: x.bestTime ?? timeByDriver.get(x.driverId) ?? null,
+      }));
+
+      // Vuelta Rápida reads lap_times — derive from every published result that
+      // has a time, not from imported alone (suplentes added in step 3 were missed).
+      const lapTimes = finalResults
+        .filter((r) => r.driverId && r.bestTime != null)
+        .map((r) => ({ driverId: r.driverId, bestTime: r.bestTime! }));
+
       const r = await fetch("/api/admin/publish-race", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -231,10 +246,7 @@ export default function RaceDayPage() {
           date,
           monthLabel,
           isOfficial,
-          results: results.map((x) => ({
-            ...x,
-            bestTime: x.bestTime ?? timeByDriver.get(x.driverId) ?? null,
-          })),
+          results: finalResults,
           dotd,
           lapTimes,
           newMappings,
