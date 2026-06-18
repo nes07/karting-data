@@ -1,8 +1,9 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { CONSTRUCTOR_COLORS } from "@/lib/constants";
+import { CONSTRUCTOR_COLORS, teamLogoUrl } from "@/lib/constants";
 
 interface DriverOpt {
   id: string;
@@ -15,6 +16,7 @@ interface TeamRow {
   category: "F1" | "F2";
   driver1_id: string | null;
   driver2_id: string | null;
+  photo_url: string | null;
   active: boolean;
 }
 
@@ -61,6 +63,30 @@ export default function TeamsPage() {
 
   async function patch(id: string, p: Partial<TeamRow>) {
     const { error } = await supabase.from("teams").update(p).eq("id", id);
+    if (error) setMsg(error.message);
+    await load();
+  }
+
+  async function uploadPhoto(t: TeamRow, file: File) {
+    setMsg(null);
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const path = `teams/${t.id}.${ext}`;
+    const { error: upErr } = await supabase.storage
+      .from("fotos")
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (upErr) {
+      setMsg(
+        `${upErr.message} — ¿corriste la migración 0002_photos.sql en Supabase?`
+      );
+      return;
+    }
+    const { data } = supabase.storage.from("fotos").getPublicUrl(path);
+    const url = `${data.publicUrl}?v=${file.lastModified}`;
+    // Same escudería may appear in F1 and F2 — one photo applies to both.
+    const { error } = await supabase
+      .from("teams")
+      .update({ photo_url: url })
+      .eq("escuderia", t.escuderia);
     if (error) setMsg(error.message);
     await load();
   }
@@ -136,39 +162,81 @@ export default function TeamsPage() {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Equipo</th><th>Escudería</th><th>Piloto 1</th><th>Piloto 2</th><th>Estado</th><th></th>
+                <th>Foto</th>
+                <th>Equipo</th>
+                <th>Escudería</th>
+                <th>Piloto 1</th>
+                <th>Piloto 2</th>
+                <th>Estado</th>
+                <th></th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {teams
                 .filter((t) => t.category === cat)
-                .map((t) => (
-                  <tr key={t.id} style={{ opacity: t.active ? 1 : 0.45 }}>
-                    <td><strong>{t.name}</strong></td>
-                    <td>
-                      <select
-                        className="admin-select"
-                        value={t.escuderia}
-                        onChange={(e) => patch(t.id, { escuderia: e.target.value })}
-                      >
-                        {ESCUDERIAS.map((e) => (
-                          <option key={e} value={e}>{e}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>{seatSelect(t, "driver1_id")}</td>
-                    <td>{seatSelect(t, "driver2_id")}</td>
-                    <td>{t.active ? "Activo" : "Retirado"}</td>
-                    <td>
-                      <button
-                        className="admin-btn secondary"
-                        onClick={() => patch(t.id, { active: !t.active })}
-                      >
-                        {t.active ? "Retirar" : "Reactivar"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                .map((t) => {
+                  const logo = t.photo_url ?? teamLogoUrl(t.escuderia);
+                  return (
+                    <tr key={t.id} style={{ opacity: t.active ? 1 : 0.45 }}>
+                      <td>
+                        {logo ? (
+                          <img
+                            src={logo}
+                            alt={t.escuderia}
+                            style={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: 8,
+                              objectFit: "contain",
+                              background: "#111",
+                            }}
+                          />
+                        ) : (
+                          <span style={{ color: "var(--gray)" }}>—</span>
+                        )}
+                      </td>
+                      <td><strong>{t.name}</strong></td>
+                      <td>
+                        <select
+                          className="admin-select"
+                          value={t.escuderia}
+                          onChange={(e) => patch(t.id, { escuderia: e.target.value })}
+                        >
+                          {ESCUDERIAS.map((e) => (
+                            <option key={e} value={e}>{e}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>{seatSelect(t, "driver1_id")}</td>
+                      <td>{seatSelect(t, "driver2_id")}</td>
+                      <td>{t.active ? "Activo" : "Retirado"}</td>
+                      <td>
+                        <label className="admin-btn secondary" style={{ cursor: "pointer" }}>
+                          {t.photo_url ? "Cambiar foto" : "Subir foto"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            style={{ display: "none" }}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) uploadPhoto(t, f);
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                      </td>
+                      <td>
+                        <button
+                          className="admin-btn secondary"
+                          onClick={() => patch(t.id, { active: !t.active })}
+                        >
+                          {t.active ? "Retirar" : "Reactivar"}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>
