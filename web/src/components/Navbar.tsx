@@ -80,7 +80,7 @@ export function Navbar() {
           ))}
           <li
             ref={moreRef}
-            className={`navbar-more${moreOpen ? " open" : ""}`}
+            className={`navbar-more navbar-more-desktop${moreOpen ? " open" : ""}`}
           >
             <button
               type="button"
@@ -107,6 +107,17 @@ export function Navbar() {
               </ul>
             )}
           </li>
+          {MORE_LINKS.map(([href, label]) => (
+            <li key={`m-${href}`} className="navbar-more-mobile">
+              <Link
+                href={href}
+                className={isActive(pathname, href) ? "active" : undefined}
+                onClick={closeMenu}
+              >
+                {label}
+              </Link>
+            </li>
+          ))}
           <li>
             <Link
               href="/votar"
