@@ -1,52 +1,135 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
-const LINKS = [
-  ["#pilotos", "Pilotos"],
-  ["#equipos", "Equipos"],
-  ["#standings", "Standings"],
-  ["#results", "Resultados"],
-  ["#dotd", "DOTD"],
-  ["#penalizaciones", "Penalizaciones"],
-  ["#trazado", "Trazado"],
-  ["#media", "Media"],
-  ["/votar", "🗳 Votar"],
+const MAIN_LINKS = [
+  ["/", "Inicio"],
+  ["/standings/pilotos", "Campeonato"],
+  ["/vuelta-rapida", "Vuelta Rápida"],
+  ["/resultados", "Resultados"],
 ] as const;
 
+const MORE_LINKS = [
+  ["/pilotos", "Pilotos"],
+  ["/equipos", "Equipos"],
+  ["/dotd", "DOTD"],
+  ["/penalizaciones", "Penalizaciones"],
+  ["/trazado", "Trazado"],
+  ["/media", "Media"],
+] as const;
+
+function isActive(pathname: string, href: string): boolean {
+  if (href === "/") return pathname === "/";
+  if (href === "/standings/pilotos") {
+    return (
+      pathname.startsWith("/standings") || pathname === "/vuelta-rapida"
+    );
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function Navbar() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLLIElement>(null);
+
+  useEffect(() => {
+    setOpen(false);
+    setMoreOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    function onPointerDown(e: PointerEvent) {
+      if (moreRef.current?.contains(e.target as Node)) return;
+      setMoreOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [moreOpen]);
+
+  function closeMenu() {
+    setOpen(false);
+    setMoreOpen(false);
+  }
 
   return (
     <nav className="navbar">
       <div className="container">
-        <a href="#hero" className="navbar-logo">
+        <Link href="/" className="navbar-logo" onClick={closeMenu}>
           <div className="navbar-logo-text">
             GKD
             <br />
             <span>Championship</span>
           </div>
-        </a>
+        </Link>
         <ul className={`navbar-links${open ? " open" : ""}`} id="navbar-links">
-          {LINKS.map(([href, label]) => (
+          {MAIN_LINKS.map(([href, label]) => (
             <li key={href}>
-              <a href={href} onClick={() => setOpen(false)}>
+              <Link
+                href={href}
+                className={isActive(pathname, href) ? "active" : undefined}
+                onClick={closeMenu}
+              >
                 {label}
-              </a>
+              </Link>
             </li>
           ))}
+          <li
+            ref={moreRef}
+            className={`navbar-more${moreOpen ? " open" : ""}`}
+          >
+            <button
+              type="button"
+              className={`navbar-more-btn${MORE_LINKS.some(([h]) => isActive(pathname, h)) ? " active" : ""}`}
+              aria-expanded={moreOpen}
+              aria-haspopup="true"
+              onClick={() => setMoreOpen((v) => !v)}
+            >
+              Más {moreOpen ? "▴" : "▾"}
+            </button>
+            {moreOpen && (
+              <ul className="navbar-more-menu">
+                {MORE_LINKS.map(([href, label]) => (
+                  <li key={href}>
+                    <Link
+                      href={href}
+                      className={isActive(pathname, href) ? "active" : undefined}
+                      onClick={closeMenu}
+                    >
+                      {label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+          <li>
+            <Link
+              href="/votar"
+              className={pathname === "/votar" ? "active" : undefined}
+              onClick={closeMenu}
+            >
+              🗳 Votar
+            </Link>
+          </li>
           <li className="navbar-admin-mobile">
-            <a href="/admin" onClick={() => setOpen(false)}>
+            <Link href="/admin" onClick={closeMenu}>
               🔐 Admin
-            </a>
+            </Link>
           </li>
         </ul>
-        <a href="/admin" className="navbar-admin" title="Panel de administración">
+        <Link href="/admin" className="navbar-admin" title="Panel de administración">
           🔐 Admin
-        </a>
+        </Link>
         <button
+          type="button"
           className="navbar-burger"
           aria-label="Menú"
+          aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
         >
           <span></span>

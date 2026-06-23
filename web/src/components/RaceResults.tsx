@@ -5,6 +5,7 @@ import { CONSTRUCTOR_COLORS } from "@/lib/constants";
 import { ChampionshipData, Category } from "@/lib/scoring/types";
 import { positionPoints } from "@/lib/scoring/engine";
 import { formatShortDate, rankBadgeClass, rowClass } from "./format";
+import { PodiumResults } from "./standings-widgets";
 
 interface ResultRow {
   pos: number;
@@ -60,7 +61,7 @@ function buildBlocks(data: ChampionshipData): DateBlock[] {
       f2: mk("F2"),
     });
   }
-  return blocks.reverse(); // most recent first
+  return blocks.reverse();
 }
 
 function ResultsTable({ rows }: { rows: ResultRow[] }) {
@@ -82,7 +83,7 @@ function ResultsTable({ rows }: { rows: ResultRow[] }) {
           {rows.map((r) => {
             const c = CONSTRUCTOR_COLORS[r.escuderia] ?? { bg: "#333", fg: "#fff" };
             return (
-              <tr key={`${r.alias}`} className={rowClass(r.pos)}>
+              <tr key={`${r.alias}-${r.pos}`} className={rowClass(r.pos)}>
                 <td>
                   <span className={rankBadgeClass(r.pos)}>{r.pos}</span>
                 </td>
@@ -108,7 +109,13 @@ function ResultsTable({ rows }: { rows: ResultRow[] }) {
   );
 }
 
-export function RaceResults({ data }: { data: ChampionshipData }) {
+export function RaceResults({
+  data,
+  photos,
+}: {
+  data: ChampionshipData;
+  photos: Record<string, string>;
+}) {
   const blocks = useMemo(() => buildBlocks(data), [data]);
   const [active, setActive] = useState(0);
   const [cat, setCat] = useState<Category>("F1");
@@ -116,41 +123,57 @@ export function RaceResults({ data }: { data: ChampionshipData }) {
   if (blocks.length === 0) {
     return <div className="table-empty">Aún no hay resultados de carreras.</div>;
   }
+
   const block = blocks[active];
+  const rows = cat === "F1" ? block.f1 : block.f2;
 
   return (
-    <div className="tabs-wrapper">
-      <div className="tabs-nav" role="tablist">
-        {blocks.map((b, i) => (
-          <button
-            key={b.raceId}
-            className={`tab-btn${i === active ? " active" : ""}`}
-            role="tab"
-            onClick={() => setActive(i)}
+    <>
+      <div className="results-toolbar">
+        <div className="results-toolbar-inner">
+          <div
+            className="results-toolbar-dates"
+            role="tablist"
+            aria-label="Fecha de carrera"
           >
-            {b.monthLabel} — {formatShortDate(b.date)}
-          </button>
-        ))}
+            {blocks.map((b, i) => (
+              <button
+                key={b.raceId}
+                type="button"
+                className={`results-date-btn${i === active ? " active" : ""}`}
+                role="tab"
+                aria-selected={i === active}
+                onClick={() => setActive(i)}
+              >
+                {b.monthLabel} — {formatShortDate(b.date)}
+              </button>
+            ))}
+          </div>
+          <div className="champ-cat" role="tablist" aria-label="Categoría">
+            <button
+              type="button"
+              className={`champ-cat-btn${cat === "F1" ? " active" : ""}`}
+              role="tab"
+              aria-selected={cat === "F1"}
+              onClick={() => setCat("F1")}
+            >
+              F1
+            </button>
+            <button
+              type="button"
+              className={`champ-cat-btn${cat === "F2" ? " active" : ""}`}
+              role="tab"
+              aria-selected={cat === "F2"}
+              onClick={() => setCat("F2")}
+            >
+              F2
+            </button>
+          </div>
+        </div>
       </div>
-      <div className="tabs-nav" role="tablist" style={{ marginTop: 12 }}>
-        <button
-          className={`tab-btn${cat === "F1" ? " active" : ""}`}
-          role="tab"
-          onClick={() => setCat("F1")}
-        >
-          🏎 New Era — F1 Moderna
-        </button>
-        <button
-          className={`tab-btn${cat === "F2" ? " active" : ""}`}
-          role="tab"
-          onClick={() => setCat("F2")}
-        >
-          🏁 Era Antigua — F1 Clásica
-        </button>
-      </div>
-      <div className="tab-panel active" role="tabpanel">
-        <ResultsTable rows={cat === "F1" ? block.f1 : block.f2} />
-      </div>
-    </div>
+
+      <PodiumResults rows={rows} photos={photos} />
+      <ResultsTable rows={rows} />
+    </>
   );
 }

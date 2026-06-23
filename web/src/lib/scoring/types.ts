@@ -27,6 +27,8 @@ export interface Race {
   /** Display label, e.g. "Marzo" */
   monthLabel: string;
   isOfficial: boolean;
+  /** Local start time HH:MM:SS (America/Santiago). */
+  startTime: string;
 }
 
 export interface RaceResult {

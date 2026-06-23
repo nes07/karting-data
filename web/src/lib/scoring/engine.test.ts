@@ -30,9 +30,9 @@ function makeData(partial: Partial<ChampionshipData>): ChampionshipData {
 }
 
 const RACES: Race[] = [
-  { id: "r1", date: "2026-03-22", monthLabel: "Marzo", isOfficial: true },
-  { id: "r2", date: "2026-04-12", monthLabel: "Abril", isOfficial: true },
-  { id: "r3", date: "2026-05-17", monthLabel: "Mayo", isOfficial: true },
+  { id: "r1", date: "2026-03-22", monthLabel: "Marzo", isOfficial: true, startTime: "12:00:00" },
+  { id: "r2", date: "2026-04-12", monthLabel: "Abril", isOfficial: true, startTime: "12:00:00" },
+  { id: "r3", date: "2026-05-17", monthLabel: "Mayo", isOfficial: true, startTime: "12:00:00" },
 ];
 
 describe("positionPoints", () => {
