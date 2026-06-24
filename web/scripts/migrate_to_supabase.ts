@@ -160,6 +160,7 @@ function parse(snap: Snapshot): Parsed {
         date,
         monthLabel: month,
         isOfficial: true,
+        startTime: "12:00:00",
       };
       races.push(race);
       raceByMonth.set(month, race);
@@ -509,6 +510,7 @@ async function seed(p: Parsed): Promise<void> {
         date: r.date,
         month_label: r.monthLabel,
         is_official: true,
+        start_time: r.startTime,
       })),
       { onConflict: "date" }
     )

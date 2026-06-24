@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAdminUser } from "@/lib/admin";
 import { dedupeLapTimes } from "@/lib/lap-times";
+import { revalidatePublicSite } from "@/lib/revalidate-public";
 
 interface PublishBody {
   date: string; // ISO
@@ -123,5 +124,6 @@ export async function POST(request: Request) {
     }
   }
 
+  revalidatePublicSite();
   return NextResponse.json({ ok: true, raceId: race.id });
 }

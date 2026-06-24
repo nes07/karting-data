@@ -1,8 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { dedupeLapTimes } from "@/lib/lap-times";
+import { CHAMPIONSHIP_MONTHS } from "@/lib/championship-months";
+import { parseRaceStart } from "@/lib/race-datetime";
+import { START_TIME_MIGRATION_SQL } from "@/lib/races-schema";
 
 type Category = "F1" | "F2";
 
@@ -23,6 +26,7 @@ interface RaceRow {
   date: string;
   month_label: string;
   is_official: boolean;
+  start_time: string;
 }
 interface ResultDraft {
   driverId: string;
@@ -39,6 +43,7 @@ interface DotdDraft {
 
 export default function RacesAdminPage() {
   const supabase = useMemo(() => createClient(), []);
+  const calendarFormRef = useRef<HTMLDivElement>(null);
 
   const [drivers, setDrivers] = useState<DriverOpt[]>([]);
   const [teams, setTeams] = useState<TeamOpt[]>([]);
@@ -55,6 +60,13 @@ export default function RacesAdminPage() {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
+  const [calId, setCalId] = useState<string | null>(null);
+  const [calDate, setCalDate] = useState("");
+  const [calMonth, setCalMonth] = useState("");
+  const [calTime, setCalTime] = useState("12:00");
+  const [calOfficial, setCalOfficial] = useState(true);
+  const [needsMigration, setNeedsMigration] = useState(false);
+
   const aliasById = useMemo(
     () => new Map(drivers.map((d) => [d.id, d.alias])),
     [drivers]
@@ -68,6 +80,32 @@ export default function RacesAdminPage() {
     }
     return m;
   }, [teams]);
+
+  const calendarRaces = useMemo(
+    () => [...races].sort((a, b) => a.date.localeCompare(b.date)),
+    [races]
+  );
+
+  const nextCountdownId = useMemo(() => {
+    const now = Date.now();
+    const upcoming = calendarRaces
+      .filter((r) => r.is_official)
+      .map((r) => ({
+        id: r.id,
+        at: parseRaceStart(r.date, r.start_time ?? "12:00:00").getTime(),
+      }))
+      .filter((r) => r.at > now)
+      .sort((a, b) => a.at - b.at);
+    return upcoming[0]?.id ?? null;
+  }, [calendarRaces]);
+
+  const missingMonths = useMemo(
+    () =>
+      CHAMPIONSHIP_MONTHS.filter(
+        (m) => !races.some((r) => r.month_label.toLowerCase() === m.toLowerCase())
+      ),
+    [races]
+  );
 
   const loadAll = useCallback(async () => {
     const [d, t, r, res] = await Promise.all([
@@ -89,6 +127,89 @@ export default function RacesAdminPage() {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  useEffect(() => {
+    fetch("/api/admin/races")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.hasStartTime === false) setNeedsMigration(true);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function revalidatePublic() {
+    await fetch("/api/admin/revalidate", { method: "POST" });
+  }
+
+  function openCalendarEdit(race: RaceRow) {
+    setCalId(race.id);
+    setCalDate(race.date);
+    setCalMonth(race.month_label);
+    setCalTime((race.start_time ?? "12:00:00").slice(0, 5));
+    setCalOfficial(race.is_official);
+    setMsg(null);
+    setEditing(null);
+    requestAnimationFrame(() => {
+      calendarFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  function startNewMonth(month: string) {
+    resetCalendarForm();
+    setCalMonth(month);
+    setMsg(null);
+    setEditing(null);
+    requestAnimationFrame(() => {
+      calendarFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  function resetCalendarForm() {
+    setCalId(null);
+    setCalDate("");
+    setCalMonth("");
+    setCalTime("12:00");
+    setCalOfficial(true);
+  }
+
+  async function saveCalendar() {
+    if (!calDate || !calMonth.trim()) {
+      setMsg({ kind: "err", text: "Indica fecha y mes (ej. Diciembre)." });
+      return;
+    }
+    setLoading(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/admin/races", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: calId ?? undefined,
+          date: calDate,
+          monthLabel: calMonth.trim(),
+          startTime: calTime,
+          isOfficial: calOfficial,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `Error ${res.status}`);
+      if (data.needsMigration) setNeedsMigration(true);
+      setMsg({
+        kind: "ok",
+        text: data.needsMigration
+          ? "Fecha guardada (día y mes). La hora queda en 12:00 hasta aplicar la migración SQL en Supabase (aviso arriba)."
+          : calId
+            ? "Fecha actualizada en el calendario."
+            : "Fecha añadida al calendario.",
+      });
+      resetCalendarForm();
+      await loadAll();
+    } catch (e) {
+      setMsg({ kind: "err", text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function openEditor(race: RaceRow) {
     setMsg(null);
@@ -212,7 +333,8 @@ export default function RacesAdminPage() {
         if (insDotd.error) throw new Error(insDotd.error.message);
       }
 
-      setMsg({ kind: "ok", text: "Cambios guardados. Los standings se recalculan solos." });
+      setMsg({ kind: "ok", text: "Cambios guardados. Sitio público actualizado." });
+      await revalidatePublic();
       await loadAll();
     } catch (e) {
       setMsg({ kind: "err", text: e instanceof Error ? e.message : String(e) });
@@ -236,6 +358,7 @@ export default function RacesAdminPage() {
       if (del.error) throw new Error(del.error.message);
       if (editing?.id === race.id) setEditing(null);
       setMsg({ kind: "ok", text: `Fecha ${race.month_label} eliminada.` });
+      await revalidatePublic();
       await loadAll();
     } catch (e) {
       setMsg({ kind: "err", text: e instanceof Error ? e.message : String(e) });
@@ -246,67 +369,200 @@ export default function RacesAdminPage() {
 
   return (
     <div>
+      {needsMigration && (
+        <div className="admin-msg err" style={{ marginBottom: 12 }}>
+          <strong>Falta columna start_time en Supabase.</strong> Puedes editar fechas (día/mes),
+          pero la hora de largada no se guardará hasta ejecutar esto en{" "}
+          <strong>Supabase → SQL Editor</strong>:
+          <pre
+            style={{
+              marginTop: 8,
+              padding: 12,
+              background: "rgba(0,0,0,0.35)",
+              borderRadius: 8,
+              overflow: "auto",
+              fontSize: "0.8rem",
+            }}
+          >
+            {START_TIME_MIGRATION_SQL}
+          </pre>
+        </div>
+      )}
       {msg && <div className={`admin-msg ${msg.kind}`}>{msg.text}</div>}
 
       <div className="admin-card">
-        <h2>📋 Carreras publicadas</h2>
-        <p style={{ color: "var(--gray)", fontSize: "0.85rem", marginBottom: 12 }}>
-          Edita posiciones, suplentes y DOTD de fechas ya publicadas, o elimina una
-          fecha completa (por ejemplo, una de prueba).
+        <h2>📅 Calendario del campeonato</h2>
+        <p style={{ color: "var(--gray)", fontSize: "0.85rem", marginBottom: 16 }}>
+          Edita cualquier fecha del campeonato — incluida la del countdown del home (ej.{" "}
+          <strong>Julio</strong>). Cambia día, hora de largada o si cuenta como oficial.
+          Haz clic en una fila o en <em>Editar fecha</em>.
         </p>
-        <table className="admin-table">
+
+        <table className="admin-table" style={{ marginBottom: 16 }}>
           <thead>
             <tr>
-              <th>Fecha</th>
               <th>Mes</th>
+              <th>Fecha</th>
+              <th>Hora</th>
               <th>Oficial</th>
+              <th>Countdown</th>
               <th>Resultados</th>
-              <th></th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {races.map((r) => (
-              <tr key={r.id} style={{ opacity: counts.get(r.id) ? 1 : 0.5 }}>
-                <td>{r.date}</td>
+            {calendarRaces.map((r) => (
+              <tr
+                key={r.id}
+                onClick={() => openCalendarEdit(r)}
+                style={{
+                  cursor: "pointer",
+                  background: calId === r.id ? "rgba(212, 175, 55, 0.08)" : undefined,
+                  opacity: counts.get(r.id) ? 1 : 0.85,
+                }}
+              >
                 <td>{r.month_label}</td>
+                <td>{r.date}</td>
+                <td>{(r.start_time ?? "12:00:00").slice(0, 5)}</td>
                 <td>{r.is_official ? "Sí" : "No"}</td>
-                <td>{counts.get(r.id) ?? 0}</td>
                 <td>
-                  <button
-                    className="admin-btn secondary"
-                    disabled={loading}
-                    onClick={() => openEditor(r)}
-                  >
-                    Editar
-                  </button>
+                  {r.is_official && r.id === nextCountdownId ? (
+                    <span style={{ color: "var(--gold)", fontWeight: 600 }}>Próxima carrera</span>
+                  ) : (
+                    "—"
+                  )}
                 </td>
-                <td>
-                  <button
-                    className="admin-btn danger"
-                    disabled={loading}
-                    onClick={() => removeRace(r)}
-                  >
-                    Eliminar
-                  </button>
+                <td>{counts.get(r.id) ?? 0}</td>
+                <td onClick={(e) => e.stopPropagation()}>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <button
+                      className="admin-btn secondary"
+                      disabled={loading}
+                      onClick={() => openCalendarEdit(r)}
+                    >
+                      Editar fecha
+                    </button>
+                    {(counts.get(r.id) ?? 0) > 0 && (
+                      <button
+                        className="admin-btn secondary"
+                        disabled={loading}
+                        onClick={() => openEditor(r)}
+                      >
+                        Resultados
+                      </button>
+                    )}
+                    <button
+                      className="admin-btn danger"
+                      disabled={loading}
+                      onClick={() => removeRace(r)}
+                    >
+                      Eliminar
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
-            {races.length === 0 && (
+            {calendarRaces.length === 0 && (
               <tr>
-                <td colSpan={6} style={{ color: "var(--gray)" }}>
-                  No hay carreras publicadas.
+                <td colSpan={7} style={{ color: "var(--gray)" }}>
+                  No hay fechas configuradas. Añade la primera abajo.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+
+        {missingMonths.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ color: "var(--gray)", fontSize: "0.85rem", marginBottom: 8 }}>
+              Meses sin configurar:
+            </p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {missingMonths.map((month) => (
+                <button
+                  key={month}
+                  className="admin-btn secondary"
+                  disabled={loading}
+                  onClick={() => startNewMonth(month)}
+                >
+                  + {month}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div
+          ref={calendarFormRef}
+          style={{
+            marginTop: 8,
+            paddingTop: 16,
+            borderTop: "1px solid rgba(255,255,255,0.08)",
+          }}
+        >
+          <h3 style={{ fontSize: "1rem", marginBottom: 12 }}>
+            {calId ? `Editando: ${calMonth}` : "Añadir fecha"}
+          </h3>
+          <div style={{ display: "grid", gap: 12, maxWidth: 480 }}>
+            <div className="admin-field">
+              <label>Mes (etiqueta)</label>
+              <select
+                className="admin-select"
+                value={calMonth}
+                onChange={(e) => setCalMonth(e.target.value)}
+              >
+                <option value="">— Mes —</option>
+                {CHAMPIONSHIP_MONTHS.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="admin-field">
+              <label>Fecha</label>
+              <input
+                type="date"
+                className="admin-input"
+                value={calDate}
+                onChange={(e) => setCalDate(e.target.value)}
+              />
+            </div>
+            <div className="admin-field">
+              <label>Hora de largada</label>
+              <input
+                type="time"
+                className="admin-input"
+                value={calTime}
+                onChange={(e) => setCalTime(e.target.value)}
+              />
+            </div>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={calOfficial}
+                onChange={(e) => setCalOfficial(e.target.checked)}
+              />
+              Carrera oficial (aparece en countdown del home)
+            </label>
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
+            <button className="admin-btn" disabled={loading} onClick={saveCalendar}>
+              {loading ? "Guardando…" : calId ? "Guardar cambios" : "Añadir fecha"}
+            </button>
+            {calId && (
+              <button className="admin-btn secondary" disabled={loading} onClick={resetCalendarForm}>
+                Cancelar
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {editing && (
         <div className="admin-card" style={{ marginTop: 16 }}>
           <h2>
-            ✏️ Editando: {editing.month_label} — {editing.date}
+            ✏️ Resultados — {editing.month_label} ({editing.date})
           </h2>
 
           {(["F1", "F2"] as const).map((cat) => (

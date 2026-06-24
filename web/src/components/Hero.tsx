@@ -2,16 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { formatShortDate } from "./format";
+import { parseRaceStart } from "@/lib/race-datetime";
 
 interface Props {
-  raceDates: Array<{ monthLabel: string; date: string }>;
+  raceDates: Array<{ monthLabel: string; date: string; startTime: string }>;
+  compact?: boolean;
 }
 
 function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-export function Hero({ raceDates }: Props) {
+export function Hero({ raceDates, compact }: Props) {
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -21,7 +23,10 @@ export function Hero({ raceDates }: Props) {
   }, []);
 
   const next = raceDates
-    .map((r) => ({ ...r, parsed: new Date(`${r.date}T12:00:00`) }))
+    .map((r) => ({
+      ...r,
+      parsed: parseRaceStart(r.date, r.startTime),
+    }))
     .filter((r) => now && r.parsed > now)
     .sort((a, b) => a.parsed.getTime() - b.parsed.getTime())[0];
 
@@ -32,7 +37,7 @@ export function Hero({ raceDates }: Props) {
   const s = Math.floor((diff % 60000) / 1000);
 
   return (
-    <section id="hero" className="hero">
+    <section id="hero" className={`hero${compact ? " hero-compact" : ""}`}>
       <div className="hero-bg"></div>
       <div className="hero-grid-lines"></div>
 
@@ -79,17 +84,19 @@ export function Hero({ raceDates }: Props) {
         </div>
       )}
 
-      <div className="hero-scroll">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
-        Scroll
-      </div>
+      {!compact && (
+        <div className="hero-scroll">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+          Scroll
+        </div>
+      )}
     </section>
   );
 }

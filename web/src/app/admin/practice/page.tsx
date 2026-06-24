@@ -159,37 +159,36 @@ export default function PracticePage() {
       setMsg({ kind: "err", text: "Selecciona una fecha." });
       return;
     }
-    setLoading(true);
-    setMsg(null);
-    try {
-      const valid = rows.filter((t) => t.driverId && t.bestTime != null);
-      if (valid.length === 0) {
-        throw new Error("Agrega al menos un piloto con tiempo.");
-      }
-      const lapRows = dedupeLapTimes(
-        valid.map((t) => ({ driverId: t.driverId!, bestTime: t.bestTime! }))
-      ).map((t) => ({
-        driver_id: t.driverId,
-        session_date: date,
-        best_time: t.bestTime,
-      }));
-      const { error } = await supabase.from("lap_times").upsert(lapRows, {
-        onConflict: "driver_id,session_date",
-      });
-      if (error) throw new Error(error.message);
+    const valid = rows.filter((t) => t.driverId && t.bestTime != null);
+    if (valid.length === 0) {
+      setMsg({ kind: "err", text: "Agrega al menos un piloto con tiempo." });
+      return;
+    }
 
-      const mappings = valid.filter((t) => t.webName && t.driverId);
-      if (mappings.length > 0) {
-        const { error: mapErr } = await supabase.from("name_mappings").upsert(
-          mappings.map((t) => ({ web_name: t.webName!, driver_id: t.driverId! })),
-          { onConflict: "web_name" }
-        );
-        if (mapErr) throw new Error(mapErr.message);
-      }
+    const payload = {
+      sessionDate: date,
+      lapTimes: dedupeLapTimes(
+        valid.map((t) => ({ driverId: t.driverId!, bestTime: t.bestTime! }))
+      ),
+      mappings: valid
+        .filter((t) => t.webName && t.driverId)
+        .map((t) => ({ webName: t.webName!, driverId: t.driverId! })),
+    };
+
+    setMsg({ kind: "ok", text: `Guardando ${payload.lapTimes.length} tiempos…` });
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/lap-times", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `Error ${res.status}`);
 
       setMsg({
         kind: "ok",
-        text: `✅ ${lapRows.length} tiempos guardados. Vuelta Rápida actualizada.`,
+        text: `✅ ${data.count} tiempos guardados. Vuelta Rápida actualizada en el sitio público.`,
       });
     } catch (e) {
       setMsg({ kind: "err", text: String(e instanceof Error ? e.message : e) });
