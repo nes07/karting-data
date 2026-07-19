@@ -79,6 +79,15 @@ function shortDate(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
+function VarBadge({ v, fontSize }: { v: number | null; fontSize: number }) {
+  const text = v == null ? "—" : v === 0 ? "=" : v > 0 ? `▲${v}` : `▼${Math.abs(v)}`;
+  const color =
+    v == null ? "rgba(255,255,255,0.25)" : v === 0 ? C.gray : v > 0 ? "#3ddc84" : "#ff5a5a";
+  return (
+    <div style={{ display: "flex", fontSize, fontWeight: 700, color }}>{text}</div>
+  );
+}
+
 /* ── building blocks ─────────────────────────────────────────── */
 
 function Frame({
@@ -508,18 +517,21 @@ function HighlightHero({ row, valueLabel }: { row: ShareRow; valueLabel: string 
 function Table({
   rows,
   valueLabel,
+  labelHeader,
   compact,
 }: {
   rows: ShareRow[];
   valueLabel: string;
+  labelHeader: string;
   compact: boolean;
 }) {
-  const nameSize = compact ? 25 : 30;
+  const showGap = rows.some((r) => r.gap != null);
+  const nameSize = showGap ? (compact ? 22 : 26) : compact ? 25 : 30;
   const badge = compact ? 36 : 48;
   const pad = compact ? "4px 24px" : "12px 28px";
-  const showGap = rows.some((r) => r.gap != null);
-  const escWidth = showGap ? 210 : 250;
+  const escWidth = showGap ? 200 : 240;
   const valueWidth = showGap ? 140 : 150;
+  const varWidth = 74;
   const headStyle: CSSProperties = {
     fontSize: showGap ? 18 : 20,
     color: C.gray,
@@ -547,7 +559,8 @@ function Table({
         }}
       >
         <div style={{ ...headStyle, width: 90, display: "flex" }}>POS</div>
-        <div style={{ ...headStyle, flexGrow: 1, display: "flex" }}>PILOTO</div>
+        <div style={{ ...headStyle, width: varWidth, display: "flex" }}>VAR</div>
+        <div style={{ ...headStyle, flexGrow: 1, display: "flex" }}>{labelHeader}</div>
         <div style={{ ...headStyle, width: escWidth, display: "flex" }}>ESCUDERÍA</div>
         {showGap ? (
           <div style={{ ...headStyle, width: 190, display: "flex", justifyContent: "flex-end" }}>
@@ -592,6 +605,9 @@ function Table({
               >
                 {r.rank}
               </div>
+            </div>
+            <div style={{ display: "flex", width: varWidth }}>
+              <VarBadge v={r.variation} fontSize={nameSize - 6} />
             </div>
             <div
               style={{
@@ -712,7 +728,12 @@ export function StandingsImage({
           small={format === "post"}
         />
       ) : null}
-      <Table rows={tableRows} valueLabel={data.valueLabel} compact={compact} />
+      <Table
+        rows={tableRows}
+        valueLabel={data.valueLabel}
+        labelHeader={data.labelHeader}
+        compact={compact}
+      />
       <Footer pageInfo={pageInfo} />
     </Frame>
   );
@@ -823,7 +844,12 @@ export function DriverProfileImage({
           }}
         >
           <div style={statCard}>
-            <div style={{ ...statValue, color: C.gold }}>{`P${profile.champRank}`}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ ...statValue, color: C.gold }}>{`P${profile.champRank}`}</div>
+              {profile.variation != null && profile.variation !== 0 ? (
+                <VarBadge v={profile.variation} fontSize={26} />
+              ) : null}
+            </div>
             <div style={statLabel}>CAMPEONATO</div>
           </div>
           <div style={statCard}>

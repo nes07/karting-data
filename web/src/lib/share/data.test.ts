@@ -171,7 +171,9 @@ describe("buildVrShare", () => {
 });
 
 describe("buildDriverProfile", () => {
-  const f1 = [driverRow({ rank: 5, alias: "NES", totalPoints: 44, bestTime: 39.2 })];
+  const f1 = [
+    driverRow({ rank: 5, alias: "NES", totalPoints: 44, bestTime: 39.2, variation: 2 }),
+  ];
   const vr = [vrRow({ rank: 17, alias: "NES", time: 38.9 })];
 
   it("builds the profile with championship and VR ranks", () => {
@@ -181,6 +183,7 @@ describe("buildDriverProfile", () => {
       category: "F1",
       categoryLabel: "F1 MODERNA",
       champRank: 5,
+      variation: 2,
       totalPoints: "44",
       bestTime: "38.900",
       vrRank: 17,

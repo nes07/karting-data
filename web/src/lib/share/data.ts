@@ -45,6 +45,8 @@ export interface StandingsShare {
   title: string;
   subtitle: string;
   valueLabel: string;
+  /** Header for the name column: PILOTO or EQUIPO. */
+  labelHeader: string;
   rows: ShareRow[];
   /** Featured row when sharing a single driver/team position. */
   highlight: ShareRow | null;
@@ -144,6 +146,7 @@ export function buildDriversShare(
     title: "STANDINGS",
     subtitle: `PILOTOS ${cat}`,
     valueLabel: "PTS",
+    labelHeader: "PILOTO",
     rows: paged.rows,
     highlight,
     truncated: paged.truncated,
@@ -175,6 +178,7 @@ export function buildTeamsShare(
     title: "STANDINGS",
     subtitle: `EQUIPOS ${cat}`,
     valueLabel: "PTS",
+    labelHeader: "EQUIPO",
     rows: paged.rows,
     highlight,
     truncated: paged.truncated,
@@ -213,6 +217,7 @@ export function buildVrShare(
     title: "VUELTA RÁPIDA",
     subtitle: "RANKING GKD",
     valueLabel: "TIEMPO",
+    labelHeader: "PILOTO",
     rows: paged.rows,
     highlight,
     truncated: paged.truncated,
@@ -228,6 +233,8 @@ export interface DriverProfileShare {
   category: Category;
   categoryLabel: string;
   champRank: number;
+  /** Rank change vs previous race, null on debut. */
+  variation: number | null;
   totalPoints: string;
   bestTime: string;
   /** Rank in the Vuelta Rápida standings, or null when no laps recorded. */
@@ -261,6 +268,7 @@ export function buildDriverProfile(
     category,
     categoryLabel: category === "F1" ? "F1 MODERNA" : "F1 CLÁSICA",
     champRank: row.rank,
+    variation: row.variation ?? null,
     totalPoints: fmtSharePts(row.totalPoints),
     bestTime: fmtShareTime(vr?.time ?? row.bestTime),
     vrRank: vr?.rank ?? null,
