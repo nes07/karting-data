@@ -312,12 +312,24 @@ function Avatar({
   );
 }
 
-function PodiumCard({ row, big, valueLabel }: { row: ShareRow; big: boolean; valueLabel: string }) {
+function PodiumCard({
+  row,
+  big,
+  valueLabel,
+  small,
+}: {
+  row: ShareRow;
+  big: boolean;
+  valueLabel: string;
+  small: boolean;
+}) {
   const ring = ringColor(row.rank);
   const valueColor = row.rank === 1 ? C.gold : C.white;
-  // Lap times ("38.080") are wider than points ("80") — scale down to fit.
-  const longValue = row.value.length > 4;
-  const valueSize = longValue ? (big ? 44 : 34) : big ? 52 : 42;
+  // Lap times ("38.080") are wider than points ("80") — stack the label
+  // below the value, centered, so nothing spills out of the card.
+  const stacked = row.value.length > 4;
+  const scale = small ? 0.82 : 1;
+  const valueSize = Math.round((stacked ? (big ? 42 : 34) : big ? 52 : 42) * scale);
   return (
     <div
       style={{
@@ -328,18 +340,24 @@ function PodiumCard({ row, big, valueLabel }: { row: ShareRow; big: boolean; val
         border: `2px solid ${row.rank === 1 ? "rgba(201,168,76,0.5)" : C.border}`,
         borderRadius: 24,
         padding: big ? "26px 22px 22px" : "20px 18px 18px",
-        width: big ? 330 : 296,
-        marginTop: big ? 0 : 40,
+        width: Math.round((big ? 330 : 296) * scale),
+        marginTop: big ? 0 : Math.round(40 * scale),
       }}
     >
-      <Avatar photo={row.photo} label={row.label} size={big ? 168 : 132} ring={ring} rank={row.rank} />
+      <Avatar
+        photo={row.photo}
+        label={row.label}
+        size={Math.round((big ? 168 : 132) * scale)}
+        ring={ring}
+        rank={row.rank}
+      />
       <div
         style={{
           fontFamily: HEAD,
-          fontSize: big ? 36 : 29,
+          fontSize: Math.round((big ? 36 : 29) * scale),
           fontWeight: 700,
           color: C.white,
-          marginTop: 18,
+          marginTop: 16,
           textAlign: "center",
         }}
       >
@@ -347,16 +365,24 @@ function PodiumCard({ row, big, valueLabel }: { row: ShareRow; big: boolean; val
       </div>
       {row.escuderia ? (
         <div style={{ display: "flex", marginTop: 10 }}>
-          <Pill escuderia={row.escuderia} fontSize={big ? 22 : 19} />
+          <Pill escuderia={row.escuderia} fontSize={Math.round((big ? 22 : 19) * scale)} />
         </div>
       ) : null}
-      <div style={{ display: "flex", alignItems: "baseline", marginTop: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: stacked ? "column" : "row",
+          alignItems: stacked ? "center" : "baseline",
+          marginTop: 12,
+        }}
+      >
         <div
           style={{
             fontFamily: HEAD,
             fontSize: valueSize,
             fontWeight: 700,
             color: valueColor,
+            textAlign: "center",
           }}
         >
           {row.value}
@@ -364,10 +390,13 @@ function PodiumCard({ row, big, valueLabel }: { row: ShareRow; big: boolean; val
         <div
           style={{
             fontFamily: HEAD,
-            fontSize: big ? 22 : 18,
+            fontSize: Math.round((big ? 20 : 17) * scale),
             fontWeight: 700,
             color: valueColor === C.gold ? C.gold : C.gray,
-            marginLeft: 8,
+            marginLeft: stacked ? 0 : 8,
+            marginTop: stacked ? 4 : 0,
+            letterSpacing: stacked ? 3 : 0,
+            textAlign: "center",
           }}
         >
           {valueLabel}
@@ -377,7 +406,15 @@ function PodiumCard({ row, big, valueLabel }: { row: ShareRow; big: boolean; val
   );
 }
 
-function Podium({ rows, valueLabel }: { rows: ShareRow[]; valueLabel: string }) {
+function Podium({
+  rows,
+  valueLabel,
+  small = false,
+}: {
+  rows: ShareRow[];
+  valueLabel: string;
+  small?: boolean;
+}) {
   const p1 = rows.find((r) => r.rank === 1);
   const p2 = rows.find((r) => r.rank === 2);
   const p3 = rows.find((r) => r.rank === 3);
@@ -388,12 +425,12 @@ function Podium({ rows, valueLabel }: { rows: ShareRow[]; valueLabel: string }) 
         justifyContent: "center",
         alignItems: "flex-start",
         gap: 22,
-        marginBottom: 30,
+        marginBottom: small ? 24 : 30,
       }}
     >
-      {p2 ? <PodiumCard row={p2} big={false} valueLabel={valueLabel} /> : null}
-      {p1 ? <PodiumCard row={p1} big valueLabel={valueLabel} /> : null}
-      {p3 ? <PodiumCard row={p3} big={false} valueLabel={valueLabel} /> : null}
+      {p2 ? <PodiumCard row={p2} big={false} valueLabel={valueLabel} small={small} /> : null}
+      {p1 ? <PodiumCard row={p1} big valueLabel={valueLabel} small={small} /> : null}
+      {p3 ? <PodiumCard row={p3} big={false} valueLabel={valueLabel} small={small} /> : null}
     </div>
   );
 }
@@ -480,10 +517,13 @@ function Table({
   const nameSize = compact ? 25 : 30;
   const badge = compact ? 36 : 48;
   const pad = compact ? "4px 24px" : "12px 28px";
+  const showGap = rows.some((r) => r.gap != null);
+  const escWidth = showGap ? 210 : 250;
+  const valueWidth = showGap ? 140 : 150;
   const headStyle: CSSProperties = {
-    fontSize: 20,
+    fontSize: showGap ? 18 : 20,
     color: C.gray,
-    letterSpacing: 3,
+    letterSpacing: showGap ? 2 : 3,
     fontWeight: 700,
   };
   return (
@@ -508,8 +548,13 @@ function Table({
       >
         <div style={{ ...headStyle, width: 90, display: "flex" }}>POS</div>
         <div style={{ ...headStyle, flexGrow: 1, display: "flex" }}>PILOTO</div>
-        <div style={{ ...headStyle, width: 250, display: "flex" }}>ESCUDERÍA</div>
-        <div style={{ ...headStyle, width: 150, display: "flex", justifyContent: "flex-end" }}>
+        <div style={{ ...headStyle, width: escWidth, display: "flex" }}>ESCUDERÍA</div>
+        {showGap ? (
+          <div style={{ ...headStyle, width: 190, display: "flex", justifyContent: "flex-end" }}>
+            GAP TO LEADER
+          </div>
+        ) : null}
+        <div style={{ ...headStyle, width: valueWidth, display: "flex", justifyContent: "flex-end" }}>
           {valueLabel}
         </div>
       </div>
@@ -560,13 +605,27 @@ function Table({
             >
               {r.label}
             </div>
-            <div style={{ display: "flex", width: 250 }}>
+            <div style={{ display: "flex", width: escWidth }}>
               {r.escuderia ? <Pill escuderia={r.escuderia} fontSize={compact ? 18 : 20} /> : null}
             </div>
+            {showGap ? (
+              <div
+                style={{
+                  display: "flex",
+                  width: 190,
+                  justifyContent: "flex-end",
+                  fontSize: nameSize - 4,
+                  fontWeight: 700,
+                  color: r.rank === 1 ? "#3ddc84" : C.grayLight,
+                }}
+              >
+                {r.gap ?? "—"}
+              </div>
+            ) : null}
             <div
               style={{
                 display: "flex",
-                width: 150,
+                width: valueWidth,
                 justifyContent: "flex-end",
                 fontFamily: HEAD,
                 fontSize: nameSize + 2,
@@ -583,7 +642,7 @@ function Table({
   );
 }
 
-function Footer() {
+function Footer({ pageInfo }: { pageInfo?: string }) {
   return (
     <div
       style={{
@@ -617,6 +676,11 @@ function Footer() {
       >
         {HASHTAG}
       </div>
+      {pageInfo ? (
+        <div style={{ fontSize: 20, color: C.gray, marginTop: 8, letterSpacing: 2 }}>
+          {pageInfo}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -631,19 +695,25 @@ export function StandingsImage({
   format: ShareFormat;
 }) {
   const { width, height } = SHARE_SIZES[format];
-  const showPodium = !data.highlight && format === "story" && data.rows.length >= 3;
   const tableRows = data.rows;
-  const compact = tableRows.length > 10;
+  const hasTop3 = [1, 2, 3].every((n) => tableRows.some((r) => r.rank === n));
+  const showPodium = !data.highlight && data.page === 1 && hasTop3;
+  const compact = format === "post" || tableRows.length > 10;
+  const pageInfo = data.pageCount > 1 ? `${data.page} / ${data.pageCount}` : undefined;
   return (
     <Frame width={width} height={height}>
       <Header title={data.title} subtitle={data.subtitle} />
       {data.highlight ? (
         <HighlightHero row={data.highlight} valueLabel={data.valueLabel} />
       ) : showPodium ? (
-        <Podium rows={tableRows.slice(0, 3)} valueLabel={data.valueLabel} />
+        <Podium
+          rows={tableRows.slice(0, 3)}
+          valueLabel={data.valueLabel}
+          small={format === "post"}
+        />
       ) : null}
       <Table rows={tableRows} valueLabel={data.valueLabel} compact={compact} />
-      <Footer />
+      <Footer pageInfo={pageInfo} />
     </Frame>
   );
 }

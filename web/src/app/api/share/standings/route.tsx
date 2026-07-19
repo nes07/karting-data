@@ -26,6 +26,7 @@ export async function GET(request: Request) {
   const cat = parseCategory(sp);
   const format = parseFormat(sp);
   const highlight = sp.get("highlight");
+  const page = Math.max(1, Number(sp.get("page")) || 1);
 
   const [site, fonts] = await Promise.all([loadSiteData(), loadShareFonts()]);
 
@@ -49,14 +50,29 @@ export async function GET(request: Request) {
       cat,
       absolutizeRecord(teamPhotos, url.origin),
       format,
-      highlight
+      highlight,
+      page
     );
   } else if (type === "vr") {
+    // Escudería of each driver's official seat (F1 first, then F2).
+    const aliasById = new Map(site.data.drivers.map((d) => [d.id, d.alias]));
+    const escByAlias: Record<string, string> = {};
+    const teamsSorted = [...site.data.teams].sort((a, b) =>
+      a.category.localeCompare(b.category)
+    );
+    for (const t of teamsSorted) {
+      for (const id of [t.driver1Id, t.driver2Id]) {
+        const alias = id ? aliasById.get(id) : null;
+        if (alias && !escByAlias[alias]) escByAlias[alias] = t.escuderia;
+      }
+    }
     data = buildVrShare(
       site.vueltaRapida,
       absolutizeRecord(driverPhotos, url.origin),
+      escByAlias,
       format,
-      highlight
+      highlight,
+      page
     );
   } else {
     data = buildDriversShare(
@@ -64,7 +80,8 @@ export async function GET(request: Request) {
       cat,
       absolutizeRecord(driverPhotos, url.origin),
       format,
-      highlight
+      highlight,
+      page
     );
   }
 
@@ -77,6 +94,9 @@ export async function GET(request: Request) {
     width,
     height,
     fonts,
-    headers: PNG_CACHE_HEADERS,
+    headers: {
+      ...PNG_CACHE_HEADERS,
+      "x-share-pages": String(data.pageCount),
+    },
   });
 }

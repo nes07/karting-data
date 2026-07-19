@@ -24,6 +24,10 @@ export const MAX_TABLE_ROWS: Record<ShareFormat, number> = {
   post: 10,
 };
 
+/** Post pagination: page 1 keeps the podium, later pages are table-only. */
+export const POST_FIRST_PAGE_ROWS = 8;
+export const POST_NEXT_PAGE_ROWS = 12;
+
 export interface ShareRow {
   rank: number;
   label: string;
@@ -33,6 +37,8 @@ export interface ShareRow {
   photo: string | null;
   variation: number | null;
   highlighted: boolean;
+  /** Gap to the leader for time rankings, e.g. "+0.287" (null elsewhere). */
+  gap?: string | null;
 }
 
 export interface StandingsShare {
@@ -44,6 +50,9 @@ export interface StandingsShare {
   highlight: ShareRow | null;
   /** True when rows were truncated to fit the format. */
   truncated: boolean;
+  /** 1-based page for multi-image posts. */
+  page: number;
+  pageCount: number;
 }
 
 export function fmtShareTime(t: number | null | undefined): string {
@@ -75,12 +84,50 @@ export function selectRows<T extends { rank: number }>(
   return { rows: [...rows.slice(0, max - 1), target], truncated: true };
 }
 
+export interface PagedRows<T> {
+  rows: T[];
+  page: number;
+  pageCount: number;
+  truncated: boolean;
+}
+
+/**
+ * Split rows into shareable pages. Stories and highlights are single-image;
+ * posts without highlight become a carousel: page 1 shows the podium plus the
+ * first rows, later pages continue the table.
+ */
+export function paginateRows<T extends { rank: number }>(
+  rows: T[],
+  format: ShareFormat,
+  highlightRank: number | null,
+  page: number
+): PagedRows<T> {
+  if (format === "story" || highlightRank != null) {
+    const picked = selectRows(rows, MAX_TABLE_ROWS[format], highlightRank);
+    return { rows: picked.rows, page: 1, pageCount: 1, truncated: picked.truncated };
+  }
+  const pageCount =
+    rows.length <= POST_FIRST_PAGE_ROWS
+      ? 1
+      : 1 + Math.ceil((rows.length - POST_FIRST_PAGE_ROWS) / POST_NEXT_PAGE_ROWS);
+  const p = Math.min(Math.max(1, Math.floor(page)), pageCount);
+  const slice =
+    p === 1
+      ? rows.slice(0, POST_FIRST_PAGE_ROWS)
+      : rows.slice(
+          POST_FIRST_PAGE_ROWS + (p - 2) * POST_NEXT_PAGE_ROWS,
+          POST_FIRST_PAGE_ROWS + (p - 1) * POST_NEXT_PAGE_ROWS
+        );
+  return { rows: slice, page: p, pageCount, truncated: pageCount > 1 };
+}
+
 export function buildDriversShare(
   rows: DriverStandingRow[],
   cat: Category,
   photos: Record<string, string>,
   format: ShareFormat,
-  highlightAlias?: string | null
+  highlightAlias?: string | null,
+  page = 1
 ): StandingsShare {
   const all: ShareRow[] = rows.map((r) => ({
     rank: r.rank,
@@ -92,14 +139,16 @@ export function buildDriversShare(
     highlighted: highlightAlias != null && r.alias === highlightAlias,
   }));
   const highlight = all.find((r) => r.highlighted) ?? null;
-  const picked = selectRows(all, MAX_TABLE_ROWS[format], highlight?.rank ?? null);
+  const paged = paginateRows(all, format, highlight?.rank ?? null, page);
   return {
     title: "STANDINGS",
     subtitle: `PILOTOS ${cat}`,
     valueLabel: "PTS",
-    rows: picked.rows,
+    rows: paged.rows,
     highlight,
-    truncated: picked.truncated,
+    truncated: paged.truncated,
+    page: paged.page,
+    pageCount: paged.pageCount,
   };
 }
 
@@ -108,7 +157,8 @@ export function buildTeamsShare(
   cat: Category,
   teamPhotos: Record<string, string>,
   format: ShareFormat,
-  highlightTeam?: string | null
+  highlightTeam?: string | null,
+  page = 1
 ): StandingsShare {
   const all: ShareRow[] = rows.map((r) => ({
     rank: r.rank,
@@ -120,41 +170,54 @@ export function buildTeamsShare(
     highlighted: highlightTeam != null && r.escuderia === highlightTeam,
   }));
   const highlight = all.find((r) => r.highlighted) ?? null;
-  const picked = selectRows(all, MAX_TABLE_ROWS[format], highlight?.rank ?? null);
+  const paged = paginateRows(all, format, highlight?.rank ?? null, page);
   return {
     title: "STANDINGS",
     subtitle: `EQUIPOS ${cat}`,
     valueLabel: "PTS",
-    rows: picked.rows,
+    rows: paged.rows,
     highlight,
-    truncated: picked.truncated,
+    truncated: paged.truncated,
+    page: paged.page,
+    pageCount: paged.pageCount,
   };
 }
 
 export function buildVrShare(
   rows: VueltaRapidaRow[],
   photos: Record<string, string>,
+  escuderias: Record<string, string>,
   format: ShareFormat,
-  highlightAlias?: string | null
+  highlightAlias?: string | null,
+  page = 1
 ): StandingsShare {
+  const leaderTime = rows.find((r) => r.rank === 1)?.time ?? null;
   const all: ShareRow[] = rows.map((r) => ({
     rank: r.rank,
     label: r.alias,
-    escuderia: null,
+    escuderia: escuderias[r.alias] ?? null,
     value: fmtShareTime(r.time),
     photo: photos[r.alias] ?? null,
     variation: r.variation,
     highlighted: highlightAlias != null && r.alias === highlightAlias,
+    gap:
+      r.rank === 1
+        ? "—"
+        : leaderTime != null
+          ? `+${(r.time - leaderTime).toFixed(3)}`
+          : null,
   }));
   const highlight = all.find((r) => r.highlighted) ?? null;
-  const picked = selectRows(all, MAX_TABLE_ROWS[format], highlight?.rank ?? null);
+  const paged = paginateRows(all, format, highlight?.rank ?? null, page);
   return {
     title: "VUELTA RÁPIDA",
     subtitle: "RANKING GKD",
     valueLabel: "TIEMPO",
-    rows: picked.rows,
+    rows: paged.rows,
     highlight,
-    truncated: picked.truncated,
+    truncated: paged.truncated,
+    page: paged.page,
+    pageCount: paged.pageCount,
   };
 }
 

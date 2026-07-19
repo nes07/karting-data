@@ -12,6 +12,8 @@ import {
   buildVrShare,
   fmtSharePts,
   fmtShareTime,
+  paginateRows,
+  POST_FIRST_PAGE_ROWS,
   selectRows,
 } from "./data";
 
@@ -83,6 +85,36 @@ describe("selectRows", () => {
   });
 });
 
+describe("paginateRows", () => {
+  const rows = Array.from({ length: 16 }, (_, i) => ({ rank: i + 1 }));
+
+  it("keeps stories in a single page", () => {
+    const r = paginateRows(rows, "story", null, 1);
+    expect(r.rows).toHaveLength(16);
+    expect(r.pageCount).toBe(1);
+  });
+
+  it("splits posts into podium page + continuation pages", () => {
+    const p1 = paginateRows(rows, "post", null, 1);
+    expect(p1.rows.map((x) => x.rank)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(p1.pageCount).toBe(2);
+    const p2 = paginateRows(rows, "post", null, 2);
+    expect(p2.rows[0].rank).toBe(POST_FIRST_PAGE_ROWS + 1);
+    expect(p2.rows.at(-1)?.rank).toBe(16);
+  });
+
+  it("clamps out-of-range pages", () => {
+    const r = paginateRows(rows, "post", null, 99);
+    expect(r.page).toBe(2);
+  });
+
+  it("keeps highlights single-page even in post format", () => {
+    const r = paginateRows(rows, "post", 15, 1);
+    expect(r.pageCount).toBe(1);
+    expect(r.rows.some((x) => x.rank === 15)).toBe(true);
+  });
+});
+
 describe("buildDriversShare", () => {
   const rows = [
     driverRow({ rank: 1, alias: "NES", totalPoints: 63 }),
@@ -113,16 +145,28 @@ describe("buildDriversShare", () => {
 });
 
 describe("buildVrShare", () => {
+  const rows = [
+    vrRow({ rank: 1, alias: "NES", time: 38.08 }),
+    vrRow({ rank: 2, alias: "TIT", time: 38.44 }),
+  ];
+
   it("formats times and finds the highlight", () => {
-    const share = buildVrShare(
-      [vrRow({ rank: 1, alias: "NES", time: 38.08 }), vrRow({ rank: 2, alias: "TIT", time: 38.44 })],
-      {},
-      "post",
-      "TIT"
-    );
+    const share = buildVrShare(rows, {}, {}, "post", "TIT");
     expect(share.valueLabel).toBe("TIEMPO");
     expect(share.rows[0].value).toBe("38.080");
     expect(share.highlight?.label).toBe("TIT");
+  });
+
+  it("computes the gap to the leader", () => {
+    const share = buildVrShare(rows, {}, {}, "story");
+    expect(share.rows[0].gap).toBe("—");
+    expect(share.rows[1].gap).toBe("+0.360");
+  });
+
+  it("attaches escuderías from the alias map", () => {
+    const share = buildVrShare(rows, {}, { NES: "Ferrari" }, "story");
+    expect(share.rows[0].escuderia).toBe("Ferrari");
+    expect(share.rows[1].escuderia).toBeNull();
   });
 });
 
