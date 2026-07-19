@@ -3,6 +3,7 @@ import { CONSTRUCTOR_COLORS, CATEGORY_LABELS, teamLogoUrl } from "@/lib/constant
 import { DotdEntry, MediaEntry, PenaltyEntry } from "@/lib/data";
 import { ChampionshipData, DriverStandingRow } from "@/lib/scoring/types";
 import { PilotPlaceholder } from "./Badges";
+import { ShareButton } from "./ShareButton";
 import { fmtPts, formatLongDate } from "./format";
 
 interface PilotEntry {
@@ -17,6 +18,14 @@ interface PilotEntry {
 function PilotCard({ p }: { p: PilotEntry }) {
   return (
     <div className="pilot-card">
+      {p.rank != null && (
+        <ShareButton
+          compact
+          endpoint={`/api/share/driver?alias=${encodeURIComponent(p.alias)}`}
+          filename={`gkd-piloto-${p.alias.toLowerCase().replace(/\s+/g, "-")}`}
+          title={`${p.alias} — GKD Championship`}
+        />
+      )}
       {p.photoUrl ? (
         <img src={p.photoUrl} alt={p.alias} />
       ) : (

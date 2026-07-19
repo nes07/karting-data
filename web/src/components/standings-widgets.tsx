@@ -2,6 +2,7 @@
 import { CONSTRUCTOR_COLORS, teamLogoUrl } from "@/lib/constants";
 import { VueltaRapidaRow } from "@/lib/data";
 import { DriverStandingRow, TeamStandingRow } from "@/lib/scoring/types";
+import { ShareButton } from "./ShareButton";
 import {
   fmtPts,
   fmtTime,
@@ -130,9 +131,12 @@ export function PodiumTeam({
 export function DriversTable({
   rows,
   months,
+  shareEndpoint,
 }: {
   rows: DriverStandingRow[];
   months: string[];
+  /** When set, each row gets a share button generating its highlight image. */
+  shareEndpoint?: string;
 }) {
   if (rows.length === 0) {
     return <div className="table-empty">Aún no hay datos de standings.</div>;
@@ -154,6 +158,7 @@ export function DriversTable({
               </th>
             ))}
             <th>Prom</th>
+            {shareEndpoint && <th></th>}
           </tr>
         </thead>
         <tbody>
@@ -192,6 +197,16 @@ export function DriversTable({
                 <td className="pts-small">
                   {p.posProm != null ? p.posProm.toFixed(1) : "—"}
                 </td>
+                {shareEndpoint && (
+                  <td className="share-cell">
+                    <ShareButton
+                      compact
+                      endpoint={`${shareEndpoint}&highlight=${encodeURIComponent(p.alias)}`}
+                      filename={`gkd-${p.alias.toLowerCase().replace(/\s+/g, "-")}`}
+                      title={`${p.alias} — GKD Championship`}
+                    />
+                  </td>
+                )}
               </tr>
             );
           })}
@@ -204,9 +219,12 @@ export function DriversTable({
 export function TeamsTable({
   rows,
   months,
+  shareEndpoint,
 }: {
   rows: TeamStandingRow[];
   months: string[];
+  /** When set, each row gets a share button generating its highlight image. */
+  shareEndpoint?: string;
 }) {
   if (rows.length === 0) {
     return <div className="table-empty">Aún no hay datos de standings.</div>;
@@ -226,6 +244,7 @@ export function TeamsTable({
             {months.map((m) => (
               <th key={m}>{m.slice(0, 3)}</th>
             ))}
+            {shareEndpoint && <th></th>}
           </tr>
         </thead>
         <tbody>
@@ -269,6 +288,16 @@ export function TeamsTable({
                     </td>
                   );
                 })}
+                {shareEndpoint && (
+                  <td className="share-cell">
+                    <ShareButton
+                      compact
+                      endpoint={`${shareEndpoint}&highlight=${encodeURIComponent(t.escuderia)}`}
+                      filename={`gkd-${t.escuderia.toLowerCase().replace(/\s+/g, "-")}`}
+                      title={`${t.escuderia} — GKD Championship`}
+                    />
+                  </td>
+                )}
               </tr>
             );
           })}
@@ -378,7 +407,14 @@ export function PodiumResults({
   );
 }
 
-export function VueltaRapidaTable({ rows }: { rows: VueltaRapidaRow[] }) {
+export function VueltaRapidaTable({
+  rows,
+  shareEndpoint,
+}: {
+  rows: VueltaRapidaRow[];
+  /** When set, each row gets a share button generating its highlight image. */
+  shareEndpoint?: string;
+}) {
   if (rows.length === 0) {
     return <div className="table-empty">Aún no hay datos de vuelta rápida.</div>;
   }
@@ -392,6 +428,7 @@ export function VueltaRapidaTable({ rows }: { rows: VueltaRapidaRow[] }) {
             <th>Tiempo</th>
             <th>Var</th>
             <th>Fecha</th>
+            {shareEndpoint && <th></th>}
           </tr>
         </thead>
         <tbody>
@@ -406,6 +443,16 @@ export function VueltaRapidaTable({ rows }: { rows: VueltaRapidaRow[] }) {
                 <VariationBadge v={r.variation} />
               </td>
               <td className="pts-small">{formatShortDate(r.date)}</td>
+              {shareEndpoint && (
+                <td className="share-cell">
+                  <ShareButton
+                    compact
+                    endpoint={`${shareEndpoint}&highlight=${encodeURIComponent(r.alias)}`}
+                    filename={`gkd-vr-${r.alias.toLowerCase().replace(/\s+/g, "-")}`}
+                    title={`${r.alias} — Vuelta Rápida GKD`}
+                  />
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

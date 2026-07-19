@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { CONSTRUCTOR_COLORS } from "@/lib/constants";
 import { ChampionshipData, Category } from "@/lib/scoring/types";
 import { positionPoints } from "@/lib/scoring/engine";
+import { ShareButton } from "./ShareButton";
 import { formatShortDate, rankBadgeClass, rowClass } from "./format";
 import { PodiumResults } from "./standings-widgets";
 
@@ -169,6 +170,11 @@ export function RaceResults({
               F2
             </button>
           </div>
+          <ShareButton
+            endpoint={`/api/share/round?date=${block.date}&cat=${cat}`}
+            filename={`gkd-round-${block.date}-${cat.toLowerCase()}`}
+            title={`Resultados ${block.monthLabel} ${cat} — GKD Championship`}
+          />
         </div>
       </div>
 

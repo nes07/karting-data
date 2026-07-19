@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PageShell } from "@/components/PageShell";
+import { ShareButton } from "@/components/ShareButton";
 import {
   PodiumVueltaRapida,
   VueltaRapidaTable,
@@ -27,11 +28,21 @@ export default async function VueltaRapidaPage() {
       }
       subtitle={`Solo tiempos desde ${formatShortDate(TRACK_RESET_DATE)} (trazado #02).`}
     >
+      <div className="share-bar">
+        <ShareButton
+          endpoint="/api/share/standings?type=vr"
+          filename="gkd-vuelta-rapida"
+          title="Vuelta Rápida — GKD Championship"
+        />
+      </div>
       <PodiumVueltaRapida
         rows={site.vueltaRapida}
         photos={getDriverPhotos(site)}
       />
-      <VueltaRapidaTable rows={site.vueltaRapida} />
+      <VueltaRapidaTable
+        rows={site.vueltaRapida}
+        shareEndpoint="/api/share/standings?type=vr"
+      />
     </PageShell>
   );
 }

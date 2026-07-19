@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PageShell } from "@/components/PageShell";
+import { ShareButton } from "@/components/ShareButton";
 import { PodiumTeam, TeamsTable } from "@/components/standings-widgets";
 import {
   getSiteData,
@@ -21,6 +22,8 @@ export default async function EquiposStandingsPage({ searchParams }: Props) {
   const isF2 = cat === "f2";
   const site = await getSiteData();
   const rows = isF2 ? site.teamsF2 : site.teamsF1;
+  const catLabel = isF2 ? "F2" : "F1";
+  const shareEndpoint = `/api/share/standings?type=teams&cat=${catLabel}`;
 
   return (
     <PageShell
@@ -33,8 +36,19 @@ export default async function EquiposStandingsPage({ searchParams }: Props) {
       }
       subtitle="Campeonato de constructores — puntos por fecha."
     >
+      <div className="share-bar">
+        <ShareButton
+          endpoint={shareEndpoint}
+          filename={`gkd-standings-equipos-${catLabel.toLowerCase()}`}
+          title={`Standings Equipos ${catLabel} — GKD Championship`}
+        />
+      </div>
       <PodiumTeam rows={rows} teamPhotos={getTeamPhotos(site)} />
-      <TeamsTable rows={rows} months={getStandingsMonths(site)} />
+      <TeamsTable
+        rows={rows}
+        months={getStandingsMonths(site)}
+        shareEndpoint={shareEndpoint}
+      />
     </PageShell>
   );
 }
