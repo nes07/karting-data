@@ -39,6 +39,8 @@ export interface ShareRow {
   highlighted: boolean;
   /** Gap to the leader for time rankings, e.g. "+0.287" (null elsewhere). */
   gap?: string | null;
+  /** Optional trailing column (e.g. round points next to lap time). */
+  extra?: string | null;
 }
 
 export interface StandingsShare {
@@ -294,6 +296,8 @@ export interface RoundShare {
   roundNumber: number;
   rows: RoundShareRow[];
   truncated: boolean;
+  page: number;
+  pageCount: number;
 }
 
 export function buildRoundShare(
@@ -301,7 +305,8 @@ export function buildRoundShare(
   date: string,
   cat: Category,
   photos: Record<string, string>,
-  format: ShareFormat
+  format: ShareFormat,
+  page = 1
 ): RoundShare | null {
   const race = data.races.find((r) => r.date === date);
   if (!race) return null;
@@ -346,13 +351,20 @@ export function buildRoundShare(
     };
   });
 
-  const max = MAX_TABLE_ROWS[format];
+  const paged = paginateRows(
+    all.map((r) => ({ ...r, rank: r.pos })),
+    format,
+    null,
+    page
+  );
   return {
     monthLabel: race.monthLabel,
     date: race.date,
     category: cat,
     roundNumber: roundNumber > 0 ? roundNumber : 1,
-    rows: all.slice(0, max),
-    truncated: all.length > max,
+    rows: paged.rows,
+    truncated: paged.truncated,
+    page: paged.page,
+    pageCount: paged.pageCount,
   };
 }

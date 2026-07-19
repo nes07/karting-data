@@ -519,19 +519,29 @@ function Table({
   valueLabel,
   labelHeader,
   compact,
+  showVar = true,
+  extraHeader,
 }: {
   rows: ShareRow[];
   valueLabel: string;
   labelHeader: string;
   compact: boolean;
+  /** Hide the VAR column (e.g. round results have no rank variation). */
+  showVar?: boolean;
+  /** Header of the optional trailing column fed by row.extra. */
+  extraHeader?: string;
 }) {
   const showGap = rows.some((r) => r.gap != null);
-  const nameSize = showGap ? (compact ? 22 : 26) : compact ? 25 : 30;
+  const showExtra = extraHeader != null;
+  const dense = showGap && showExtra;
+  const nameSize = dense ? (compact ? 21 : 25) : showGap ? (compact ? 22 : 26) : compact ? 25 : 30;
   const badge = compact ? 36 : 48;
   const pad = compact ? "4px 24px" : "12px 28px";
-  const escWidth = showGap ? 200 : 240;
-  const valueWidth = showGap ? 140 : 150;
+  const escWidth = dense ? 190 : showGap ? 200 : 240;
+  const gapWidth = dense ? 170 : 190;
+  const valueWidth = dense ? 130 : showGap ? 140 : 150;
   const varWidth = 74;
+  const extraWidth = 96;
   const headStyle: CSSProperties = {
     fontSize: showGap ? 18 : 20,
     color: C.gray,
@@ -559,17 +569,24 @@ function Table({
         }}
       >
         <div style={{ ...headStyle, width: 90, display: "flex" }}>POS</div>
-        <div style={{ ...headStyle, width: varWidth, display: "flex" }}>VAR</div>
+        {showVar ? (
+          <div style={{ ...headStyle, width: varWidth, display: "flex" }}>VAR</div>
+        ) : null}
         <div style={{ ...headStyle, flexGrow: 1, display: "flex" }}>{labelHeader}</div>
         <div style={{ ...headStyle, width: escWidth, display: "flex" }}>ESCUDERÍA</div>
         {showGap ? (
-          <div style={{ ...headStyle, width: 190, display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ ...headStyle, width: gapWidth, display: "flex", justifyContent: "flex-end" }}>
             GAP TO LEADER
           </div>
         ) : null}
         <div style={{ ...headStyle, width: valueWidth, display: "flex", justifyContent: "flex-end" }}>
           {valueLabel}
         </div>
+        {showExtra ? (
+          <div style={{ ...headStyle, width: extraWidth, display: "flex", justifyContent: "flex-end" }}>
+            {extraHeader}
+          </div>
+        ) : null}
       </div>
       {rows.map((r) => {
         const b = badgeColors(r.rank);
@@ -606,9 +623,11 @@ function Table({
                 {r.rank}
               </div>
             </div>
-            <div style={{ display: "flex", width: varWidth }}>
-              <VarBadge v={r.variation} fontSize={nameSize - 6} />
-            </div>
+            {showVar ? (
+              <div style={{ display: "flex", width: varWidth }}>
+                <VarBadge v={r.variation} fontSize={nameSize - 6} />
+              </div>
+            ) : null}
             <div
               style={{
                 display: "flex",
@@ -628,11 +647,11 @@ function Table({
               <div
                 style={{
                   display: "flex",
-                  width: 190,
+                  width: gapWidth,
                   justifyContent: "flex-end",
                   fontSize: nameSize - 4,
                   fontWeight: 700,
-                  color: r.rank === 1 ? "#3ddc84" : C.grayLight,
+                  color: r.gap === "—" ? "#3ddc84" : C.grayLight,
                 }}
               >
                 {r.gap ?? "—"}
@@ -651,6 +670,21 @@ function Table({
             >
               {r.value}
             </div>
+            {showExtra ? (
+              <div
+                style={{
+                  display: "flex",
+                  width: extraWidth,
+                  justifyContent: "flex-end",
+                  fontFamily: HEAD,
+                  fontSize: nameSize,
+                  fontWeight: 700,
+                  color: r.rank === 1 ? C.gold : C.white,
+                }}
+              >
+                {r.extra ?? "—"}
+              </div>
+            ) : null}
           </div>
         );
       })}
@@ -886,6 +920,18 @@ export function DriverProfileImage({
 
 export function RoundImage({ round, format }: { round: RoundShare; format: ShareFormat }) {
   const { width, height } = SHARE_SIZES[format];
+  const tableRows: ShareRow[] = round.rows.map((r) => ({
+    rank: r.pos,
+    label: r.alias,
+    escuderia: r.escuderia,
+    value: r.time,
+    photo: r.photo,
+    variation: null,
+    highlighted: false,
+    // Best lap of the round shows "—" (green), same as the VR leader.
+    gap: r.dif === "+0.000" ? "—" : r.dif,
+    extra: String(r.pts),
+  }));
   const top3: ShareRow[] = round.rows
     .filter((r) => r.pos <= 3)
     .map((r) => ({
@@ -897,16 +943,9 @@ export function RoundImage({ round, format }: { round: RoundShare; format: Share
       variation: null,
       highlighted: false,
     }));
-  const showPodium = format === "story" && top3.length >= 3;
-  const compact = round.rows.length > 10;
-  const nameSize = compact ? 24 : 28;
-  const badge = compact ? 38 : 44;
-  const headStyle: CSSProperties = {
-    fontSize: 19,
-    color: C.gray,
-    letterSpacing: 2,
-    fontWeight: 700,
-  };
+  const showPodium = round.page === 1 && top3.length >= 3;
+  const compact = format === "post" || round.rows.length > 10;
+  const pageInfo = round.pageCount > 1 ? `${round.page} / ${round.pageCount}` : undefined;
   return (
     <Frame width={width} height={height}>
       <Header
@@ -914,129 +953,18 @@ export function RoundImage({ round, format }: { round: RoundShare; format: Share
         subtitle={`RESULTADOS ${round.category}`}
         meta={`${round.monthLabel} — ${shortDate(round.date)}`}
       />
-      {showPodium ? <Podium rows={top3} valueLabel="PTS" /> : null}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          backgroundColor: "rgba(18,20,26,0.85)",
-          border: `1px solid ${C.border}`,
-          borderRadius: 20,
-          padding: "18px 0",
-          flexGrow: 1,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            padding: "0 26px 12px",
-            borderBottom: `1px solid ${C.border}`,
-          }}
-        >
-          <div style={{ ...headStyle, width: 76, display: "flex" }}>POS</div>
-          <div style={{ ...headStyle, flexGrow: 1, display: "flex" }}>PILOTO</div>
-          <div style={{ ...headStyle, width: 210, display: "flex" }}>ESCUDERÍA</div>
-          <div style={{ ...headStyle, width: 130, display: "flex", justifyContent: "flex-end" }}>
-            TIEMPO
-          </div>
-          <div style={{ ...headStyle, width: 120, display: "flex", justifyContent: "flex-end" }}>
-            DIF
-          </div>
-          <div style={{ ...headStyle, width: 90, display: "flex", justifyContent: "flex-end" }}>
-            PTS
-          </div>
-        </div>
-        {round.rows.map((r) => {
-          const b = badgeColors(r.pos);
-          return (
-            <div
-              key={`${r.pos}-${r.alias}`}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                padding: compact ? "6px 26px" : "10px 26px",
-                backgroundColor: rowTint(r.pos, false),
-                borderRadius: 12,
-                margin: "3px 12px",
-                flexGrow: 1,
-              }}
-            >
-              <div style={{ display: "flex", width: 76 }}>
-                <div
-                  style={{
-                    width: badge,
-                    height: badge,
-                    borderRadius: 999,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: b.bg,
-                    color: b.fg,
-                    fontFamily: HEAD,
-                    fontSize: Math.round(badge * 0.42),
-                    fontWeight: 700,
-                  }}
-                >
-                  {r.pos}
-                </div>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexGrow: 1,
-                  fontFamily: HEAD,
-                  fontSize: nameSize,
-                  fontWeight: 700,
-                  color: C.white,
-                }}
-              >
-                {r.alias}
-              </div>
-              <div style={{ display: "flex", width: 210 }}>
-                <Pill escuderia={r.escuderia} fontSize={compact ? 17 : 19} />
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  width: 130,
-                  justifyContent: "flex-end",
-                  fontSize: nameSize - 2,
-                  fontWeight: 700,
-                  color: C.white,
-                }}
-              >
-                {r.time}
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  width: 120,
-                  justifyContent: "flex-end",
-                  fontSize: nameSize - 4,
-                  color: r.dif === "+0.000" ? "#3ddc84" : C.grayLight,
-                }}
-              >
-                {r.dif}
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  width: 90,
-                  justifyContent: "flex-end",
-                  fontFamily: HEAD,
-                  fontSize: nameSize,
-                  fontWeight: 700,
-                  color: r.pos === 1 ? C.gold : C.white,
-                }}
-              >
-                {r.pts}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <Footer />
+      {showPodium ? (
+        <Podium rows={top3} valueLabel="PTS" small={format === "post"} />
+      ) : null}
+      <Table
+        rows={tableRows}
+        valueLabel="TIEMPO"
+        labelHeader="PILOTO"
+        compact={compact}
+        showVar={false}
+        extraHeader="PTS"
+      />
+      <Footer pageInfo={pageInfo} />
     </Frame>
   );
 }
