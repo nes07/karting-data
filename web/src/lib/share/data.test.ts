@@ -88,10 +88,36 @@ describe("selectRows", () => {
 describe("paginateRows", () => {
   const rows = Array.from({ length: 16 }, (_, i) => ({ rank: i + 1 }));
 
-  it("keeps stories in a single page", () => {
+  it("keeps stories up to 16 rows in a single page", () => {
     const r = paginateRows(rows, "story", null, 1);
     expect(r.rows).toHaveLength(16);
     expect(r.pageCount).toBe(1);
+  });
+
+  it("paginates stories with balanced pages when the table does not fit", () => {
+    const many = Array.from({ length: 20 }, (_, i) => ({ rank: i + 1 }));
+    const p1 = paginateRows(many, "story", null, 1);
+    expect(p1.rows).toHaveLength(10);
+    expect(p1.rows[0].rank).toBe(1);
+    expect(p1.pageCount).toBe(2);
+    const p2 = paginateRows(many, "story", null, 2);
+    expect(p2.rows).toHaveLength(10);
+    expect(p2.rows[0].rank).toBe(11);
+    expect(p2.rows.at(-1)?.rank).toBe(20);
+  });
+
+  it("covers every row exactly once across pages", () => {
+    for (const format of ["story", "post"] as const) {
+      for (const n of [15, 20, 21, 33, 46, 47]) {
+        const many = Array.from({ length: n }, (_, i) => ({ rank: i + 1 }));
+        const pc = paginateRows(many, format, null, 1).pageCount;
+        const seen: number[] = [];
+        for (let p = 1; p <= pc; p++) {
+          seen.push(...paginateRows(many, format, null, p).rows.map((r) => r.rank));
+        }
+        expect(seen).toEqual(many.map((r) => r.rank));
+      }
+    }
   });
 
   it("splits posts into podium page + continuation pages", () => {

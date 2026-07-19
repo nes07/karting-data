@@ -588,6 +588,14 @@ function Table({
           </div>
         ) : null}
       </div>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flexGrow: 1,
+          justifyContent: "space-around",
+        }}
+      >
       {rows.map((r) => {
         const b = badgeColors(r.rank);
         return (
@@ -602,6 +610,7 @@ function Table({
               borderRadius: 12,
               margin: compact ? "2px 12px" : "3px 12px",
               flexGrow: 1,
+              maxHeight: compact ? 74 : 96,
             }}
           >
             <div style={{ display: "flex", width: 78 }}>
@@ -688,6 +697,7 @@ function Table({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

@@ -28,6 +28,11 @@ export const MAX_TABLE_ROWS: Record<ShareFormat, number> = {
 export const POST_FIRST_PAGE_ROWS = 8;
 export const POST_NEXT_PAGE_ROWS = 12;
 
+/** Story pagination: single image up to 16 rows, otherwise paginate too. */
+export const STORY_SINGLE_PAGE_MAX = 16;
+export const STORY_FIRST_PAGE_ROWS = 14;
+export const STORY_NEXT_PAGE_ROWS = 18;
+
 export interface ShareRow {
   rank: number;
   label: string;
@@ -96,9 +101,10 @@ export interface PagedRows<T> {
 }
 
 /**
- * Split rows into shareable pages. Stories and highlights are single-image;
- * posts without highlight become a carousel: page 1 shows the podium plus the
- * first rows, later pages continue the table.
+ * Split rows into shareable pages. Highlights are always single-image; full
+ * standings become a multi-image set when the table does not fit: page 1
+ * shows the podium plus the first rows, later pages continue the table.
+ * Stories fit more rows, so they only paginate past STORY_SINGLE_PAGE_MAX.
  */
 export function paginateRows<T extends { rank: number }>(
   rows: T[],
@@ -106,23 +112,37 @@ export function paginateRows<T extends { rank: number }>(
   highlightRank: number | null,
   page: number
 ): PagedRows<T> {
-  if (format === "story" || highlightRank != null) {
+  if (highlightRank != null) {
     const picked = selectRows(rows, MAX_TABLE_ROWS[format], highlightRank);
     return { rows: picked.rows, page: 1, pageCount: 1, truncated: picked.truncated };
   }
+  if (format === "story" && rows.length <= STORY_SINGLE_PAGE_MAX) {
+    return { rows, page: 1, pageCount: 1, truncated: false };
+  }
+  const first = format === "story" ? STORY_FIRST_PAGE_ROWS : POST_FIRST_PAGE_ROWS;
+  const next = format === "story" ? STORY_NEXT_PAGE_ROWS : POST_NEXT_PAGE_ROWS;
   const pageCount =
-    rows.length <= POST_FIRST_PAGE_ROWS
-      ? 1
-      : 1 + Math.ceil((rows.length - POST_FIRST_PAGE_ROWS) / POST_NEXT_PAGE_ROWS);
+    rows.length <= first ? 1 : 1 + Math.ceil((rows.length - first) / next);
   const p = Math.min(Math.max(1, Math.floor(page)), pageCount);
+  if (pageCount === 1) {
+    return { rows, page: 1, pageCount: 1, truncated: false };
+  }
+  // Balance rows across pages (page 1 holds fewer because of the podium)
+  // so the last page never ends up almost empty. The second term guarantees
+  // page 1 never exceeds its cap.
+  const perLaterPage = Math.max(
+    Math.ceil(rows.length / pageCount),
+    Math.ceil((rows.length - first) / (pageCount - 1))
+  );
+  const firstCount = rows.length - perLaterPage * (pageCount - 1);
   const slice =
     p === 1
-      ? rows.slice(0, POST_FIRST_PAGE_ROWS)
+      ? rows.slice(0, firstCount)
       : rows.slice(
-          POST_FIRST_PAGE_ROWS + (p - 2) * POST_NEXT_PAGE_ROWS,
-          POST_FIRST_PAGE_ROWS + (p - 1) * POST_NEXT_PAGE_ROWS
+          firstCount + (p - 2) * perLaterPage,
+          firstCount + (p - 1) * perLaterPage
         );
-  return { rows: slice, page: p, pageCount, truncated: pageCount > 1 };
+  return { rows: slice, page: p, pageCount, truncated: true };
 }
 
 export function buildDriversShare(
