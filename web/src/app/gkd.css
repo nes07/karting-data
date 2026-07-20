@@ -2333,8 +2333,8 @@ button { cursor: pointer; border: none; background: none; }
   .pilots-promo-photos img,
   .pilots-promo-placeholder { width: 72px; height: 72px; }
   .footer-grid { grid-template-columns: 1fr 1fr; }
-  .home-vr-table th:nth-child(7),
-  .home-vr-table td:nth-child(7) { display: none; }
+  .home-vr-table th:nth-child(8),
+  .home-vr-table td:nth-child(8) { display: none; }
 
   .championship-toolbar-inner.has-cat {
     flex-wrap: wrap;

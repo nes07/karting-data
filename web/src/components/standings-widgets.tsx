@@ -4,6 +4,7 @@ import { VueltaRapidaRow } from "@/lib/data";
 import { DriverStandingRow, TeamStandingRow } from "@/lib/scoring/types";
 import { ShareButton } from "./ShareButton";
 import {
+  fmtGap,
   fmtPts,
   fmtTime,
   formatShortDate,
@@ -418,6 +419,7 @@ export function VueltaRapidaTable({
   if (rows.length === 0) {
     return <div className="table-empty">Aún no hay datos de vuelta rápida.</div>;
   }
+  const leaderTime = rows[0]?.time ?? null;
   return (
     <div className="standings-table-wrap">
       <table className="standings-table">
@@ -426,6 +428,7 @@ export function VueltaRapidaTable({
             <th>#</th>
             <th>Piloto</th>
             <th>Tiempo</th>
+            <th>Gap to Leader</th>
             <th>Var</th>
             <th>Fecha</th>
             {shareEndpoint && <th></th>}
@@ -439,6 +442,7 @@ export function VueltaRapidaTable({
               </td>
               <td className="pilot-cell">{r.alias}</td>
               <td className="time-cell">{fmtTime(r.time)}</td>
+              <td className="pts-small gap-cell">{fmtGap(r.time, leaderTime, r.rank)}</td>
               <td className="pts-small">
                 <VariationBadge v={r.variation} />
               </td>

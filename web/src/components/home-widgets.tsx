@@ -10,6 +10,7 @@ import type {
 import { positionPoints } from "@/lib/scoring/engine";
 import { ConstructorBadge, PilotPlaceholder, RankBadge } from "./Badges";
 import {
+  fmtGap,
   fmtPts,
   fmtTime,
   formatShortDate,
@@ -66,7 +67,7 @@ function PodiumAvatar({ row }: { row: RankingRow }) {
 
 export function RankingCard({
   tag = "Standings",
-  big = "1",
+  big,
   label,
   meta,
   href,
@@ -74,6 +75,7 @@ export function RankingCard({
   rows,
 }: {
   tag?: string;
+  /** Optional big figure on the left (e.g. round number "R5"). */
   big?: string;
   label: string;
   meta?: string;
@@ -93,7 +95,7 @@ export function RankingCard({
       style={{ ["--rc-accent"]: accent } as React.CSSProperties}
     >
       <div className="ranking-card-head">
-        <span className="ranking-card-one">{big}</span>
+        {big ? <span className="ranking-card-one">{big}</span> : null}
         <div className="ranking-card-titles">
           <span className="ranking-card-tag">{tag}</span>
           <span className="ranking-card-title">{label}</span>
@@ -287,6 +289,7 @@ export function VrHomeTable({
   if (rows.length === 0) {
     return <div className="table-empty">Aún no hay datos de vuelta rápida.</div>;
   }
+  const leaderTime = rows[0]?.time ?? null;
   return (
     <div className="standings-table-wrap home-vr-wrap">
       <table className="standings-table home-vr-table">
@@ -297,6 +300,7 @@ export function VrHomeTable({
             <th>Cat</th>
             <th>Escudería</th>
             <th>Tiempo</th>
+            <th>Gap to Leader</th>
             <th>Var</th>
             <th>Fecha</th>
           </tr>
@@ -343,6 +347,9 @@ export function VrHomeTable({
                   )}
                 </td>
                 <td className="time-cell">{fmtTime(r.time)}</td>
+                <td className="pts-small gap-cell">
+                  {fmtGap(r.time, leaderTime, r.rank)}
+                </td>
                 <td className="pts-small">
                   <VariationBadge v={r.variation} />
                 </td>
