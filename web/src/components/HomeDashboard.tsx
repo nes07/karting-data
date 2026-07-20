@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Hero } from "@/components/Hero";
 import {
+  buildLastRace,
   buildVrInfo,
   driversToRankingRows,
   PilotsPromo,
@@ -64,6 +65,9 @@ export function HomeDashboard({ site }: Props) {
   const photos = getDriverPhotos(site);
   const teamPhotos = getTeamPhotos(site);
   const vrInfo = buildVrInfo(site);
+  const lastRaces = [buildLastRace(site, "F1", photos), buildLastRace(site, "F2", photos)]
+    .filter((r) => r != null)
+    .slice(0, 2);
 
   return (
     <>
@@ -102,6 +106,23 @@ export function HomeDashboard({ site }: Props) {
               rows={teamsToRankingRows(site.teamsF2, teamPhotos)}
             />
           </div>
+
+          {lastRaces.length > 0 && (
+            <div className="ranking-grid results-grid">
+              {lastRaces.map((r) => (
+                <RankingCard
+                  key={r.label}
+                  tag="Resultados"
+                  big={r.big}
+                  label={r.label}
+                  meta={r.meta}
+                  href="/resultados"
+                  ctaLabel="Ver resultados"
+                  rows={r.rows}
+                />
+              ))}
+            </div>
+          )}
 
           <PilotsPromo drivers={site.driversF1} photos={photos} />
 

@@ -1907,20 +1907,62 @@ button { cursor: pointer; border: none; background: none; }
   text-transform: uppercase;
   color: var(--white);
 }
-.ranking-card-photo img,
-.ranking-card-placeholder {
-  width: 74px;
-  height: 74px;
+.ranking-card-meta {
+  font-size: 0.7rem;
+  color: var(--gray);
+  letter-spacing: 0.04em;
+}
+/* Mini podium: P2 · P1 (bigger, elevated) · P3 */
+.ranking-card-podium {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.rc-pod { position: relative; }
+.rc-pod img,
+.rc-pod-ph {
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
   object-fit: cover;
-  border: 3px solid var(--rc-accent);
+  border: 2px solid var(--border);
   background: var(--bg-card-2);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-head);
-  font-size: 1.1rem;
+  font-size: 0.7rem;
   color: var(--white);
+}
+.rc-pod.pos-1 {
+  z-index: 3;
+  margin: 0 -8px;
+  transform: translateY(-8px);
+}
+.rc-pod.pos-1 img,
+.rc-pod.pos-1 .rc-pod-ph {
+  width: 66px;
+  height: 66px;
+  border-width: 3px;
+  border-color: var(--rc-accent);
+  font-size: 1rem;
+}
+.rc-pod.pos-2 { z-index: 2; }
+.rc-pod.pos-2 img,
+.rc-pod.pos-2 .rc-pod-ph { border-color: var(--silver-badge); }
+.rc-pod.pos-3 { z-index: 1; }
+.rc-pod.pos-3 img,
+.rc-pod.pos-3 .rc-pod-ph { border-color: var(--bronze-badge); }
+.rc-pod .rc-pod-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  font-size: 0.58rem;
+  line-height: 18px;
+  z-index: 4;
 }
 .ranking-card-list {
   list-style: none;

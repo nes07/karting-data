@@ -7,12 +7,14 @@ import type {
   DriverStandingRow,
   TeamStandingRow,
 } from "@/lib/scoring/types";
+import { positionPoints } from "@/lib/scoring/engine";
 import { ConstructorBadge, PilotPlaceholder, RankBadge } from "./Badges";
 import {
   fmtPts,
   fmtTime,
   formatShortDate,
   initials,
+  rankBadgeClass,
   rowClass,
   stringToColor,
 } from "./format";
@@ -38,44 +40,69 @@ function accentOf(escuderia: string | null): string {
   return CONSTRUCTOR_COLORS[escuderia]?.bg ?? "var(--red)";
 }
 
+function PodiumAvatar({ row }: { row: RankingRow }) {
+  return (
+    <div className={`rc-pod pos-${row.rank}`}>
+      {row.photo ? (
+        <img
+          src={row.photo}
+          alt={row.label}
+          style={row.isLogo ? { objectFit: "contain", padding: 6 } : undefined}
+        />
+      ) : (
+        <div
+          className="rc-pod-ph"
+          style={{ background: stringToColor(row.label) }}
+        >
+          {initials(row.label)}
+        </div>
+      )}
+      <span className={`rc-pod-badge ${rankBadgeClass(row.rank)}`}>
+        {row.rank}
+      </span>
+    </div>
+  );
+}
+
 export function RankingCard({
+  tag = "Standings",
+  big = "1",
   label,
+  meta,
   href,
+  ctaLabel = "Ver standings",
   rows,
 }: {
+  tag?: string;
+  big?: string;
   label: string;
+  meta?: string;
   href: string;
+  ctaLabel?: string;
   rows: RankingRow[];
 }) {
   if (rows.length === 0) return null;
-  const leader = rows[0];
-  const accent = accentOf(leader.escuderia);
+  const accent = accentOf(rows[0].escuderia);
+  // Podium order: P2 · P1 (center, elevated) · P3.
+  const podium = [rows[1], rows[0], rows[2]].filter(
+    (r): r is RankingRow => r != null
+  );
   return (
     <div
       className="ranking-card"
       style={{ ["--rc-accent"]: accent } as React.CSSProperties}
     >
       <div className="ranking-card-head">
-        <span className="ranking-card-one">1</span>
+        <span className="ranking-card-one">{big}</span>
         <div className="ranking-card-titles">
-          <span className="ranking-card-tag">Ranking</span>
+          <span className="ranking-card-tag">{tag}</span>
           <span className="ranking-card-title">{label}</span>
+          {meta ? <span className="ranking-card-meta">{meta}</span> : null}
         </div>
-        <div className="ranking-card-photo">
-          {leader.photo ? (
-            <img
-              src={leader.photo}
-              alt={leader.label}
-              style={leader.isLogo ? { objectFit: "contain", padding: 8 } : undefined}
-            />
-          ) : (
-            <div
-              className="ranking-card-placeholder"
-              style={{ background: stringToColor(leader.label) }}
-            >
-              {initials(leader.label)}
-            </div>
-          )}
+        <div className="ranking-card-podium">
+          {podium.map((r) => (
+            <PodiumAvatar key={r.rank} row={r} />
+          ))}
         </div>
       </div>
       <ul className="ranking-card-list">
@@ -88,7 +115,7 @@ export function RankingCard({
         ))}
       </ul>
       <Link href={href} className="ranking-card-cta">
-        Ver ranking <span aria-hidden>→</span>
+        {ctaLabel} <span aria-hidden>→</span>
       </Link>
     </div>
   );
@@ -123,6 +150,65 @@ export function teamsToRankingRows(
       isLogo: photo == null && logo != null,
     };
   });
+}
+
+export interface LastRaceCardData {
+  label: string;
+  meta: string;
+  big: string;
+  rows: RankingRow[];
+}
+
+/** Podium of the most recent race with published results for a category. */
+export function buildLastRace(
+  site: SiteData,
+  cat: Category,
+  photos: Record<string, string>
+): LastRaceCardData | null {
+  const { data } = site;
+  const racesWithResults = data.races
+    .filter((race) =>
+      data.results.some((r) => r.raceId === race.id && r.category === cat)
+    )
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const race = racesWithResults[0];
+  if (!race) return null;
+
+  const aliasById = new Map(data.drivers.map((d) => [d.id, d.alias]));
+  const escByDriver = new Map<string, string>();
+  for (const t of data.teams) {
+    if (t.category !== cat) continue;
+    for (const id of [t.driver1Id, t.driver2Id]) {
+      if (id) escByDriver.set(id, t.escuderia);
+    }
+  }
+
+  const officialRaces = data.races
+    .filter((r) => r.isOfficial)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const roundNumber = officialRaces.findIndex((r) => r.id === race.id) + 1;
+
+  const rows: RankingRow[] = data.results
+    .filter((r) => r.raceId === race.id && r.category === cat)
+    .sort((a, b) => a.position - b.position)
+    .slice(0, 3)
+    .map((r) => {
+      const alias = aliasById.get(r.driverId) ?? "?";
+      return {
+        rank: r.position,
+        label: alias,
+        pts: fmtPts(positionPoints(r.position, cat, data.config)),
+        escuderia: r.isReserve ? null : escByDriver.get(r.driverId) ?? null,
+        photo: photos[alias] ?? null,
+      };
+    });
+
+  return {
+    label: `Carrera ${cat}`,
+    meta: `${race.monthLabel} · ${formatShortDate(race.date)}`,
+    big: roundNumber > 0 ? `R${roundNumber}` : "R1",
+    rows,
+  };
 }
 
 export function PilotsPromo({
