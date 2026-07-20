@@ -32,7 +32,7 @@ const C = {
 const HEAD = "Microgramma";
 const BODY = "Inter";
 
-const SITE_URL = "app.gkd-racing.cl";
+const SITE_URL = "gkd-racing.cl";
 const HASHTAG = "#NEWERA2026";
 
 function ringColor(rank: number): string {
