@@ -1082,13 +1082,75 @@ button { cursor: pointer; border: none; background: none; }
    ═══════════════════════════════════════════════════════════════ */
 .footer {
   border-top: 1px solid var(--border);
-  padding: 32px 0;
-  text-align: center;
+  padding: 40px 0 28px;
   color: var(--gray);
   font-size: 0.82rem;
 }
 .footer img { height: 32px; margin: 0 auto 12px; }
-.footer a { color: var(--red); }
+.footer-grid {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(3, 1fr);
+  gap: 28px;
+  margin-bottom: 28px;
+}
+.footer-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+.footer-logo {
+  font-family: var(--font-head);
+  font-size: 1.6rem;
+  letter-spacing: 0.1em;
+  color: var(--white);
+}
+.footer-era {
+  font-size: 0.7rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--gray);
+}
+.footer-social {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  margin-top: 10px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--gray-light);
+  transition: border-color 0.2s, color 0.2s;
+}
+.footer-social:hover { border-color: var(--red); color: var(--white); }
+.footer-social svg { width: 16px; height: 16px; }
+.footer-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.footer-col-title {
+  font-family: var(--font-head);
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--white);
+  margin-bottom: 4px;
+}
+.footer-col a {
+  color: var(--gray);
+  font-size: 0.82rem;
+  transition: color 0.2s;
+}
+.footer-col a:hover { color: var(--white); }
+.footer-copy {
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+  text-align: center;
+}
+.footer a { color: var(--gray); }
+.footer a:hover { color: var(--white); }
 
 /* ═══════════════════════════════════════════════════════════════
    PODIUM — standings & race results
@@ -1741,103 +1803,284 @@ button { cursor: pointer; border: none; background: none; }
 }
 .podium-slot[data-pos="1"] .podium-time { color: var(--gold); font-weight: 600; }
 
-.podium-carousel {
-  position: relative;
-  margin: 0 auto 48px;
-  max-width: 900px;
+/* ═══════════════════════════════════════════════════════════════
+   HOME — hero features, ranking cards, pilots promo, VR table
+   ═══════════════════════════════════════════════════════════════ */
+.hero-features {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  margin: 20px 0 8px;
+  flex-wrap: wrap;
+}
+.hero-feature {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--gray-light);
+}
+.hero-feature-icon {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--red);
+  background: rgba(232, 25, 44, 0.08);
+}
+.hero-feature-icon svg { width: 16px; height: 16px; }
+
+.hero-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 26px;
+  padding: 12px 26px;
+  border: 1px solid var(--red);
+  border-radius: 999px;
+  background: rgba(232, 25, 44, 0.12);
+  color: var(--white);
+  font-family: var(--font-head);
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: background 0.2s, transform 0.2s;
+}
+.hero-cta:hover { background: rgba(232, 25, 44, 0.28); transform: translateY(-1px); }
+.hero-cta svg { width: 16px; height: 16px; color: var(--red); }
+
+.ranking-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
+  scroll-margin-top: calc(var(--nav-h) + 16px);
+}
+.ranking-card {
+  --rc-accent: var(--red);
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(ellipse 90% 55% at 85% 0%, color-mix(in srgb, var(--rc-accent) 14%, transparent) 0%, transparent 70%),
+    var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 16px;
-  background: var(--bg-card);
+  padding: 22px 22px 16px;
+  transition: border-color 0.2s, transform 0.2s;
 }
-.podium-carousel-viewport {
-  overflow: hidden;
-  touch-action: pan-y pinch-zoom;
-  border-radius: 16px 16px 0 0;
-}
-.podium-carousel-track {
+.ranking-card:hover { border-color: color-mix(in srgb, var(--rc-accent) 60%, transparent); transform: translateY(-2px); }
+.ranking-card-head {
   display: flex;
-  transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
 }
-.podium-carousel-slide {
-  flex: 0 0 100%;
-  min-width: 100%;
-  padding: 32px 24px 28px;
-  text-align: center;
-  position: relative;
-}
-.podium-carousel-slide[data-theme="f1"] {
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(232, 25, 44, 0.12) 0%, transparent 65%),
-    var(--bg-card);
-}
-.podium-carousel-slide[data-theme="f2"] {
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(201, 168, 76, 0.1) 0%, transparent 65%),
-    var(--bg-card);
-}
-.podium-carousel-slide[data-theme="vr"] {
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(100, 180, 255, 0.08) 0%, transparent 65%),
-    var(--bg-card);
-}
-.podium-carousel-title {
+.ranking-card-one {
   font-family: var(--font-head);
-  font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+  font-size: 2.6rem;
+  line-height: 1;
+  color: var(--gold);
+}
+.ranking-card-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.ranking-card-tag {
+  font-family: var(--font-head);
+  font-size: 0.65rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--red);
+}
+.ranking-card-title {
+  font-family: var(--font-head);
+  font-size: 1.02rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--white);
+}
+.ranking-card-photo img,
+.ranking-card-placeholder {
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--rc-accent);
+  background: var(--bg-card-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-head);
+  font-size: 1.1rem;
+  color: var(--white);
+}
+.ranking-card-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.ranking-card-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid transparent;
+}
+.ranking-card-list li.rank-1 { background: var(--gold-row); border-color: rgba(201, 168, 76, 0.25); }
+.ranking-card-list li.rank-2 { background: var(--silver-row); }
+.ranking-card-list li.rank-3 { background: rgba(180, 100, 40, 0.12); }
+.ranking-card-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-head);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--white);
+}
+.ranking-card-pts {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--gray-light);
+}
+.ranking-card-list li.rank-1 .ranking-card-pts { color: var(--gold); }
+.ranking-card-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: auto;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-family: var(--font-head);
+  font-size: 0.7rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  margin-bottom: 20px;
-  color: var(--white);
-}
-.podium-carousel-title .accent { color: var(--red); }
-.podium-carousel-body { margin-bottom: 16px; overflow: visible; }
-.podium-carousel-body .podium-wrap { margin-bottom: 0; overflow: visible; }
-.podium-carousel-cta {
-  display: inline-block;
-  font-size: 0.85rem;
-  color: var(--red);
-  letter-spacing: 0.04em;
-  transition: color 0.2s;
-}
-.podium-carousel-cta:hover { color: var(--white); }
-.podium-carousel-controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 0 16px 20px;
-}
-.podium-carousel-arrow {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
   color: var(--gray-light);
-  font-size: 1.1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: border-color 0.2s, color 0.2s;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
 }
-.podium-carousel-arrow:hover {
+.ranking-card-cta:hover {
   border-color: var(--red);
   color: var(--white);
+  background: rgba(232, 25, 44, 0.1);
 }
-.podium-carousel-dots {
+
+.pilots-promo {
   display: flex;
-  gap: 8px;
-  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 28px 32px;
+  margin-bottom: 48px;
+  background:
+    radial-gradient(ellipse 70% 80% at 100% 0%, rgba(232, 25, 44, 0.14) 0%, transparent 65%),
+    var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  flex-wrap: wrap;
 }
-.podium-carousel-dot {
-  width: 28px;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.15);
-  transition: background 0.25s, width 0.25s;
+.pilots-promo-text { flex: 1; min-width: 240px; }
+.pilots-promo-title {
+  font-family: var(--font-head);
+  font-size: clamp(1.3rem, 3vw, 1.8rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--white);
+  margin-bottom: 8px;
 }
-.podium-carousel-dot.active {
-  background: var(--red);
-  width: 36px;
+.pilots-promo-title .accent { color: var(--red); }
+.pilots-promo-sub {
+  font-size: 0.9rem;
+  color: var(--gray);
+  line-height: 1.5;
+  margin-bottom: 16px;
+  max-width: 420px;
 }
+.pilots-promo-cta { display: inline-flex; }
+.pilots-promo-photos { display: flex; }
+.pilots-promo-photos img,
+.pilots-promo-placeholder {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--bg-card);
+  background: var(--bg-card-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-head);
+  color: var(--white);
+}
+.pilots-promo-photos img:not(:first-child),
+.pilots-promo-photos .pilots-promo-placeholder:not(:first-child) {
+  margin-left: -22px;
+}
+
+.home-vr-section { margin-bottom: 24px; }
+.home-vr-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.home-vr-title {
+  font-family: var(--font-head);
+  font-size: clamp(1.1rem, 3vw, 1.5rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--white);
+}
+.home-vr-title .accent { color: var(--red); }
+.home-vr-cta { margin-top: 0; }
+.home-vr-pilot {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.home-vr-pilot img,
+.home-vr-avatar-ph {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-family: var(--font-head);
+  color: var(--white);
+  flex-shrink: 0;
+}
+.home-vr-cat {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: var(--font-head);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+}
+.home-vr-cat.cat-f1 { background: rgba(232, 25, 44, 0.16); color: #ff8892; }
+.home-vr-cat.cat-f2 { background: rgba(201, 168, 76, 0.16); color: var(--gold-light); }
 
 .dashboard-grid {
   display: grid;
@@ -1845,6 +2088,16 @@ button { cursor: pointer; border: none; background: none; }
   gap: 16px;
   margin-bottom: 48px;
 }
+/* compact top row on the home */
+.dashboard-grid-top {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 32px;
+}
+.dashboard-grid-top .dashboard-card { padding: 14px 16px; gap: 4px; }
+.dashboard-grid-top .dashboard-card-icon { font-size: 1.15rem; }
+.dashboard-grid-top .dashboard-card-title { font-size: 0.8rem; }
+.dashboard-grid-top .dashboard-card-sub { display: none; }
 .dashboard-card {
   display: flex;
   flex-direction: column;
@@ -2027,19 +2280,19 @@ button { cursor: pointer; border: none; background: none; }
   .podium-slot[data-pos="1"] .podium-img-wrap { width: 76px; height: 76px; }
   .podium-img-wrap { width: 64px; height: 64px; }
   .podium-pos-badge { width: 20px; height: 20px; font-size: 0.58rem; }
-  .podium-carousel-body .podium-wrap {
-    gap: 8px;
-    padding: 8px 12px 0;
-    margin-left: auto;
-    margin-right: auto;
-    max-width: 100%;
-  }
   .podium-slot[data-pos="1"] .podium-pedestal { height: 72px; }
   .podium-slot[data-pos="2"] .podium-pedestal { height: 52px; }
   .podium-slot[data-pos="3"] .podium-pedestal { height: 38px; }
 
-  .podium-carousel-slide { padding: 24px 16px 20px; }
-  .podium-carousel-arrow { width: 32px; height: 32px; }
+  .ranking-grid { grid-template-columns: 1fr; }
+  .hero-features { gap: 14px; }
+  .hero-feature { font-size: 0.68rem; }
+  .pilots-promo { padding: 22px 20px; }
+  .pilots-promo-photos img,
+  .pilots-promo-placeholder { width: 72px; height: 72px; }
+  .footer-grid { grid-template-columns: 1fr 1fr; }
+  .home-vr-table th:nth-child(7),
+  .home-vr-table td:nth-child(7) { display: none; }
 
   .championship-toolbar-inner.has-cat {
     flex-wrap: wrap;

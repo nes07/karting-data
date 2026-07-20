@@ -1,8 +1,15 @@
 import Link from "next/link";
 import { Hero } from "@/components/Hero";
-import { PodiumCarousel } from "@/components/PodiumCarousel";
+import {
+  buildVrInfo,
+  driversToRankingRows,
+  PilotsPromo,
+  RankingCard,
+  teamsToRankingRows,
+  VrHomeTable,
+} from "@/components/home-widgets";
 import { SiteData } from "@/lib/data";
-import { getDriverPhotos } from "@/lib/get-site";
+import { getDriverPhotos, getTeamPhotos } from "@/lib/get-site";
 
 const CARDS = [
   {
@@ -55,19 +62,15 @@ interface Props {
 
 export function HomeDashboard({ site }: Props) {
   const photos = getDriverPhotos(site);
+  const teamPhotos = getTeamPhotos(site);
+  const vrInfo = buildVrInfo(site);
 
   return (
     <>
       <Hero raceDates={site.raceDates} compact />
-      <section className="section page-shell">
+      <section className="section page-shell home-sections">
         <div className="container">
-          <PodiumCarousel
-            driversF1={site.driversF1}
-            driversF2={site.driversF2}
-            vueltaRapida={site.vueltaRapida}
-            photos={photos}
-          />
-          <div className="dashboard-grid">
+          <div className="dashboard-grid dashboard-grid-top">
             {CARDS.map((c) => (
               <Link key={c.href} href={c.href} className="dashboard-card">
                 <span className="dashboard-card-icon">{c.icon}</span>
@@ -75,6 +78,43 @@ export function HomeDashboard({ site }: Props) {
                 <span className="dashboard-card-sub">{c.subtitle}</span>
               </Link>
             ))}
+          </div>
+
+          <div id="rankings" className="ranking-grid">
+            <RankingCard
+              label="Pilotos F1"
+              href="/standings/pilotos"
+              rows={driversToRankingRows(site.driversF1, photos)}
+            />
+            <RankingCard
+              label="Escuderías F1"
+              href="/standings/equipos"
+              rows={teamsToRankingRows(site.teamsF1, teamPhotos)}
+            />
+            <RankingCard
+              label="Pilotos F2"
+              href="/standings/pilotos?cat=f2"
+              rows={driversToRankingRows(site.driversF2, photos)}
+            />
+            <RankingCard
+              label="Escuderías F2"
+              href="/standings/equipos?cat=f2"
+              rows={teamsToRankingRows(site.teamsF2, teamPhotos)}
+            />
+          </div>
+
+          <PilotsPromo drivers={site.driversF1} photos={photos} />
+
+          <div className="home-vr-section">
+            <div className="home-vr-head">
+              <h2 className="home-vr-title">
+                Ranking de <span className="accent">Vuelta Rápida</span>
+              </h2>
+              <Link href="/vuelta-rapida" className="ranking-card-cta home-vr-cta">
+                Ver todas las vueltas <span aria-hidden>→</span>
+              </Link>
+            </div>
+            <VrHomeTable rows={site.vueltaRapida} photos={photos} info={vrInfo} />
           </div>
         </div>
       </section>
