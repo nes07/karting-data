@@ -5,6 +5,7 @@ import {
   PodiumVueltaRapida,
   VueltaRapidaTable,
 } from "@/components/standings-widgets";
+import { buildVrInfo } from "@/components/home-widgets";
 import { TRACK_RESET_DATE } from "@/lib/data";
 import { getDriverPhotos, getSiteData } from "@/lib/get-site";
 import { formatShortDate } from "@/components/format";
@@ -16,6 +17,10 @@ export const metadata: Metadata = {
 
 export default async function VueltaRapidaPage() {
   const site = await getSiteData();
+  const vrInfo = buildVrInfo(site);
+  const categories = Object.fromEntries(
+    Object.entries(vrInfo).map(([alias, i]) => [alias, i.category])
+  );
 
   return (
     <PageShell
@@ -42,6 +47,7 @@ export default async function VueltaRapidaPage() {
       <VueltaRapidaTable
         rows={site.vueltaRapida}
         shareEndpoint="/api/share/standings?type=vr"
+        categories={categories}
       />
     </PageShell>
   );

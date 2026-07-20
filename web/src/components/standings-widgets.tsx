@@ -411,10 +411,13 @@ export function PodiumResults({
 export function VueltaRapidaTable({
   rows,
   shareEndpoint,
+  categories,
 }: {
   rows: VueltaRapidaRow[];
   /** When set, each row gets a share button generating its highlight image. */
   shareEndpoint?: string;
+  /** Category per alias (official seat); adds a CAT column when provided. */
+  categories?: Record<string, "F1" | "F2" | null | undefined>;
 }) {
   if (rows.length === 0) {
     return <div className="table-empty">Aún no hay datos de vuelta rápida.</div>;
@@ -427,6 +430,7 @@ export function VueltaRapidaTable({
           <tr>
             <th>#</th>
             <th>Piloto</th>
+            {categories && <th>Cat</th>}
             <th>Tiempo</th>
             <th>Gap to Leader</th>
             <th>Var</th>
@@ -441,6 +445,19 @@ export function VueltaRapidaTable({
                 <RankBadge rank={r.rank} />
               </td>
               <td className="pilot-cell">{r.alias}</td>
+              {categories && (
+                <td>
+                  {categories[r.alias] ? (
+                    <span
+                      className={`home-vr-cat cat-${categories[r.alias]!.toLowerCase()}`}
+                    >
+                      {categories[r.alias]}
+                    </span>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+              )}
               <td className="time-cell">{fmtTime(r.time)}</td>
               <td className="pts-small gap-cell">{fmtGap(r.time, leaderTime, r.rank)}</td>
               <td className="pts-small">
