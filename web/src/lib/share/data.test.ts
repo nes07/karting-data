@@ -30,6 +30,7 @@ function driverRow(overrides: Partial<DriverStandingRow>): DriverStandingRow {
     dotdPoints: 0,
     penaltyPoints: 0,
     races: [],
+    droppedPoints: 0,
     posProm: null,
     bestTime: null,
     variation: null,

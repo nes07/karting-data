@@ -181,10 +181,20 @@ export function DriversTable({
                 {months.map((m) => {
                   const r = byMonth.get(m);
                   return (
-                    <td key={m} className={`pos-cell ${r ? "has-value" : ""}`}>
+                    <td
+                      key={m}
+                      className={`pos-cell ${r ? "has-value" : ""}${r?.dropped ? " dropped" : ""}`}
+                      title={
+                        r?.dropped
+                          ? "Peor desempeño descartado — no suma al total"
+                          : undefined
+                      }
+                    >
                       {r ? (
                         <>
-                          {r.position} / {r.points}
+                          <span className={r.dropped ? "dropped-value" : undefined}>
+                            {r.position} / {r.points}
+                          </span>
                           {r.penaltyPoints < 0 && (
                             <span className="penalty-badge">{r.penaltyPoints}</span>
                           )}
@@ -213,6 +223,12 @@ export function DriversTable({
           })}
         </tbody>
       </table>
+      {months.length >= 2 && (
+        <p className="table-footnote">
+          * Se descarta automáticamente el peor desempeño a la fecha de cada
+          piloto (tachado). Las ausencias cuentan como peor resultado.
+        </p>
+      )}
     </div>
   );
 }
@@ -275,12 +291,25 @@ export function TeamsTable({
                 {months.map((m) => {
                   const r = byMonth.get(m);
                   return (
-                    <td key={m} className="pts-small">
+                    <td
+                      key={m}
+                      className="pts-small"
+                      title={
+                        r && r.droppedPoints !== 0
+                          ? `Descarte heredado de piloto: −${fmtPts(r.droppedPoints)} pts`
+                          : undefined
+                      }
+                    >
                       {r ? (
                         <>
                           {fmtPts(r.points)}
                           {r.penaltyPoints < 0 && (
                             <span className="penalty-badge">{r.penaltyPoints}</span>
+                          )}
+                          {r.droppedPoints !== 0 && (
+                            <span className="dropped-badge">
+                              −{fmtPts(r.droppedPoints)}
+                            </span>
                           )}
                         </>
                       ) : (
@@ -304,6 +333,12 @@ export function TeamsTable({
           })}
         </tbody>
       </table>
+      {months.length >= 2 && (
+        <p className="table-footnote">
+          * El badge gris −X indica el aporte descontado por el descarte
+          automático del peor desempeño de un piloto del equipo.
+        </p>
+      )}
     </div>
   );
 }

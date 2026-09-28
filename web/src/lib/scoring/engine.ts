@@ -19,6 +19,16 @@
  *   - Tiebreakers:          total points desc -> avg position asc -> best time asc.
  *   - Variation (Var):      rank now minus rank before the latest completed race;
  *                           null for debutants (fewer than 2 races attended).
+ *   - Worst-result drop:    once a category has 2+ completed races, each driver's
+ *                           worst performance to date is dropped automatically.
+ *                           Absences count as a 0-point performance, so a driver
+ *                           only drops an attended race when they attended every
+ *                           race, or when an attended cell is negative (penalties).
+ *                           Teams inherit the drop: the dropped pilot's
+ *                           contribution that race (position pts + attendance +
+ *                           DOTD − penalty) is subtracted from the team total.
+ *                           Reserve (RD) drops never affect teams. posProm and
+ *                           best time keep counting every race.
  */
 
 import {
@@ -71,6 +81,7 @@ interface DriverAggregate {
   dotdPoints: number;
   penaltyPoints: number;
   totalPoints: number;
+  droppedPoints: number;
   posProm: number | null;
   bestTime: number | null;
 }
@@ -84,9 +95,48 @@ function emptyAggregate(driverId: string): DriverAggregate {
     dotdPoints: 0,
     penaltyPoints: 0,
     totalPoints: 0,
+    droppedPoints: 0,
     posProm: null,
     bestTime: null,
   };
+}
+
+/** Minimum completed races in a category before the worst-result drop applies. */
+const DROP_WORST_MIN_RACES = 2;
+
+/**
+ * Applies the automatic worst-result drop to driver aggregates (mutating them)
+ * and returns the dropped raceId per driver.
+ *
+ * An absence counts as a 0-point performance: a driver with absences only
+ * drops an attended race when that cell is negative (penalties made it worse
+ * than not showing up). Drops that fall on an absence subtract nothing and are
+ * not returned. posProm and bestTime are intentionally left untouched.
+ */
+function applyWorstDrop(
+  byDriver: Map<string, DriverAggregate>,
+  raceCount: number
+): Map<string, string> {
+  const droppedRace = new Map<string, string>();
+  if (raceCount < DROP_WORST_MIN_RACES) return droppedRace;
+
+  for (const agg of byDriver.values()) {
+    if (agg.cells.length === 0) continue;
+    let worst = agg.cells[0];
+    for (const cell of agg.cells) {
+      if (cell.points < worst.points) worst = cell;
+    }
+    const hasAbsence = agg.cells.length < raceCount;
+    // With an absence on record, the 0-point no-show is already the worst
+    // result unless some attended race scored below zero.
+    if (hasAbsence && worst.points >= 0) continue;
+
+    worst.dropped = true;
+    agg.droppedPoints = worst.points;
+    agg.totalPoints -= worst.points;
+    droppedRace.set(agg.driverId, worst.raceId);
+  }
+  return droppedRace;
 }
 
 function aggregateDrivers(
@@ -212,6 +262,7 @@ export function computeDriverStandings(
   const races = completedRaces(data.races, results, category);
 
   const current = aggregateDrivers(races, results, dotd, penalties, teams, category, config);
+  applyWorstDrop(current, races.length);
   const currentRanks = rankMap(current);
 
   // Previous standings: exclude the latest completed race entirely.
@@ -226,6 +277,7 @@ export function computeDriverStandings(
     category,
     config
   );
+  applyWorstDrop(previous, prevRaces.length);
   const previousRanks = rankMap(previous);
 
   // Official escudería lookup for this category.
@@ -255,6 +307,7 @@ export function computeDriverStandings(
       dotdPoints: agg.dotdPoints,
       penaltyPoints: agg.penaltyPoints,
       races: agg.cells,
+      droppedPoints: agg.droppedPoints,
       posProm: agg.posProm,
       bestTime: agg.bestTime,
       variation:
@@ -273,6 +326,7 @@ interface TeamAggregate {
   pointsFromRaces: number;
   participationPoints: number;
   totalPoints: number;
+  droppedPoints: number;
   posProm: number | null;
   bestTime: number | null;
   penaltyPoints: number;
@@ -285,10 +339,28 @@ function aggregateTeams(
   dotd: DotdAward[],
   penalties: Penalty[],
   category: Category,
-  config: ScoringConfig
+  config: ScoringConfig,
+  /** Dropped raceId per driver (from the drivers' worst-result drop). */
+  droppedRaceByDriver: Map<string, string>
 ): Map<string, TeamAggregate> {
   const raceOrder = new Map(races.map((r, i) => [r.id, i]));
   const categoryTeams = teams.filter((t) => t.category === category);
+
+  // Per-driver DOTD / penalty lookups, needed to price a dropped pilot's
+  // exact contribution to their team on the dropped race.
+  const dotdByDriverRace = new Set<string>();
+  for (const d of dotd) {
+    if (d.category === category && raceOrder.has(d.raceId)) {
+      dotdByDriverRace.add(`${d.driverId}|${d.raceId}`);
+    }
+  }
+  const penaltyByDriverRace = new Map<string, number>();
+  for (const p of penalties) {
+    if (p.category === category && raceOrder.has(p.raceId)) {
+      const key = `${p.driverId}|${p.raceId}`;
+      penaltyByDriverRace.set(key, (penaltyByDriverRace.get(key) ?? 0) + p.points);
+    }
+  }
 
   // Official seat -> team id (this category), to credit DOTD to the right team.
   const teamByDriver = new Map<string, string>();
@@ -327,6 +399,7 @@ function aggregateTeams(
         pointsFromRaces: 0,
         participationPoints: 0,
         totalPoints: 0,
+        droppedPoints: 0,
         posProm: null,
         bestTime: null,
         penaltyPoints: 0,
@@ -347,6 +420,9 @@ function aggregateTeams(
 
       let racePoints = 0;
       let officialsPresent = 0;
+      // Contribution of members whose worst-result drop falls on this race:
+      // their position pts + attendance + DOTD − penalty leave the team total.
+      let droppedContribution = 0;
 
       for (const res of raceResults) {
         if (!res.isReserve && officialIds.includes(res.driverId)) {
@@ -358,7 +434,16 @@ function aggregateTeams(
                 ? res.bestTime
                 : Math.min(agg.bestTime, res.bestTime);
           }
+          if (droppedRaceByDriver.get(res.driverId) === race.id) {
+            const key = `${res.driverId}|${race.id}`;
+            droppedContribution +=
+              positionPoints(res.position, category, config) +
+              config.teamParticipationPoint +
+              (dotdByDriverRace.has(key) ? config.dotdPoint : 0) +
+              (penaltyByDriverRace.get(key) ?? 0);
+          }
         } else if (res.isReserve && res.replacedTeamId === team.id) {
+          // Reserve (RD) drops never propagate to the replaced team.
           racePoints +=
             positionPoints(res.position, category, config) *
             config.reserveTeamFactor;
@@ -378,6 +463,7 @@ function aggregateTeams(
           points: racePoints + attendance + dotdBonus + penDeduct,
           officialParticipated: officialsPresent > 0,
           penaltyPoints: penDeduct,
+          droppedPoints: droppedContribution,
         });
         agg.pointsFromRaces += racePoints;
         agg.participationPoints += attendance;
@@ -405,9 +491,12 @@ function aggregateTeams(
       positions.length > 0
         ? positions.reduce((s, p) => s + p, 0) / positions.length
         : null;
-    // Total = position points + reserve halves + attendance + DOTD − penalties. Cells
-    // fold every per-race bonus/deduction, so summing them keeps total == sum of columns.
-    agg.totalPoints = agg.cells.reduce((s, c) => s + c.points, 0);
+    // Total = position points + reserve halves + attendance + DOTD − penalties,
+    // minus the contributions removed by the drivers' worst-result drops. Cells
+    // keep their full race points; droppedPoints records what left the total.
+    agg.droppedPoints = agg.cells.reduce((s, c) => s + c.droppedPoints, 0);
+    agg.totalPoints =
+      agg.cells.reduce((s, c) => s + c.points, 0) - agg.droppedPoints;
     agg.penaltyPoints = agg.cells.reduce((s, c) => s + c.penaltyPoints, 0);
   }
 
@@ -421,19 +510,34 @@ export function computeTeamStandings(
   const { drivers, teams, results, dotd, penalties, config } = data;
   const races = completedRaces(data.races, results, category);
 
-  const current = aggregateTeams(teams, races, results, dotd, penalties, category, config);
+  // Teams inherit their pilots' worst-result drops: recompute the drivers'
+  // aggregation to know which race each pilot dropped.
+  const driverAggs = aggregateDrivers(races, results, dotd, penalties, teams, category, config);
+  const droppedByDriver = applyWorstDrop(driverAggs, races.length);
+
+  const current = aggregateTeams(
+    teams, races, results, dotd, penalties, category, config, droppedByDriver
+  );
   const currentRanks = rankMap(current);
 
   const prevRaces = races.slice(0, -1);
   const prevRaceIds = new Set(prevRaces.map((r) => r.id));
+  const prevResults = results.filter((r) => prevRaceIds.has(r.raceId));
+  const prevDotd = dotd.filter((d) => prevRaceIds.has(d.raceId));
+  const prevPenalties = penalties.filter((p) => prevRaceIds.has(p.raceId));
+  const prevDriverAggs = aggregateDrivers(
+    prevRaces, prevResults, prevDotd, prevPenalties, teams, category, config
+  );
+  const prevDroppedByDriver = applyWorstDrop(prevDriverAggs, prevRaces.length);
   const previous = aggregateTeams(
     teams,
     prevRaces,
-    results.filter((r) => prevRaceIds.has(r.raceId)),
-    dotd.filter((d) => prevRaceIds.has(d.raceId)),
-    penalties.filter((p) => prevRaceIds.has(p.raceId)),
+    prevResults,
+    prevDotd,
+    prevPenalties,
     category,
-    config
+    config,
+    prevDroppedByDriver
   );
   const previousRanks = rankMap(previous);
 
@@ -455,6 +559,7 @@ export function computeTeamStandings(
       participationPoints: agg.participationPoints,
       penaltyPoints: agg.penaltyPoints,
       races: agg.cells,
+      droppedPoints: agg.droppedPoints,
       posProm: agg.posProm,
       bestTime: agg.bestTime,
       variation:

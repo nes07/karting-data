@@ -629,6 +629,30 @@ button { cursor: pointer; border: none; background: none; }
   line-height: 1;
 }
 
+/* Automatic worst-result drop */
+.pos-cell.dropped { background: rgba(255, 255, 255, 0.02); }
+.dropped-value {
+  text-decoration: line-through;
+  text-decoration-color: rgba(232, 25, 44, 0.7);
+  text-decoration-thickness: 1.5px;
+  opacity: 0.45;
+}
+.dropped-badge {
+  display: inline-block;
+  margin-left: 3px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--gray);
+  vertical-align: super;
+  line-height: 1;
+}
+.table-footnote {
+  margin: 10px 4px 0;
+  font-size: 0.72rem;
+  color: var(--gray);
+  line-height: 1.5;
+}
+
 /* Badge in the public Penalizaciones section */
 .penalty-level-badge {
   display: inline-block;
