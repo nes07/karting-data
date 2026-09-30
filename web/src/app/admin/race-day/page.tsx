@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { dedupeLapTimes } from "@/lib/lap-times";
+import { CHAMPIONSHIP_MONTHS } from "@/lib/championship-months";
 
 interface DriverOpt {
   id: string;
@@ -41,9 +42,6 @@ interface ResultDraft {
   isDnf: boolean;
 }
 
-const MONTHS = [
-  "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre",
-];
 
 export default function RaceDayPage() {
   const supabase = useMemo(() => createClient(), []);
@@ -307,7 +305,7 @@ export default function RaceDayPage() {
               onChange={(e) => setMonthLabel(e.target.value)}
             >
               <option value="">— Selecciona —</option>
-              {MONTHS.map((m) => (
+              {CHAMPIONSHIP_MONTHS.map((m) => (
                 <option key={m} value={m}>{m}</option>
               ))}
             </select>
