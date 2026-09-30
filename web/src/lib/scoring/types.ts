@@ -35,7 +35,7 @@ export interface RaceResult {
   raceId: string;
   driverId: string;
   category: Category;
-  /** 1-based finishing position. */
+  /** 1-based finishing position (for DNF: the classified back-of-field slot). */
   position: number;
   /** Best lap in seconds (nullable). */
   bestTime?: number | null;
@@ -43,6 +43,12 @@ export interface RaceResult {
   isReserve: boolean;
   /** Team whose seat the reserve covered (required when isReserve). */
   replacedTeamId?: string | null;
+  /**
+   * Did Not Finish: started the race but didn't complete it. Earns the
+   * participation point (and team attendance) but no position points; the
+   * position doesn't count toward posProm. Best lap still counts.
+   */
+  isDnf?: boolean;
 }
 
 export interface DotdAward {
@@ -117,6 +123,8 @@ export interface DriverRaceCell {
   penaltyPoints: number;
   /** True when this race is the driver's automatically dropped worst result. */
   dropped?: boolean;
+  /** True when the driver started but did not finish this race. */
+  dnf?: boolean;
 }
 
 export interface DriverStandingRow {

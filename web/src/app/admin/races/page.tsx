@@ -35,6 +35,8 @@ interface ResultDraft {
   bestTime: number | null;
   isReserve: boolean;
   replacedTeamId: string | null;
+  /** Started but didn't finish: participation point only, no position points. */
+  isDnf: boolean;
 }
 interface DotdDraft {
   driverId: string;
@@ -228,6 +230,7 @@ export default function RacesAdminPage() {
             bestTime: r.best_time,
             isReserve: r.is_reserve,
             replacedTeamId: r.replaced_team_id,
+            isDnf: r.is_dnf ?? false,
           }))
           .sort((a, b) => a.position - b.position)
       );
@@ -264,6 +267,7 @@ export default function RacesAdminPage() {
           bestTime: null,
           isReserve: false,
           replacedTeamId: null,
+          isDnf: false,
         },
       ];
     });
@@ -296,6 +300,7 @@ export default function RacesAdminPage() {
             best_time: r.bestTime,
             is_reserve: r.isReserve,
             replaced_team_id: r.isReserve ? r.replacedTeamId : null,
+            is_dnf: r.isDnf,
           }))
         );
         if (ins.error) throw new Error(ins.error.message);
@@ -576,6 +581,9 @@ export default function RacesAdminPage() {
                     <th>Pos</th>
                     <th>Piloto</th>
                     <th>Mejor vuelta</th>
+                    <th title="No terminó la carrera: suma participación pero no puntos por posición">
+                      DNF
+                    </th>
                     <th>Suplente</th>
                     <th>Reemplaza a</th>
                     <th></th>
@@ -627,6 +635,14 @@ export default function RacesAdminPage() {
                                 bestTime: e.target.value ? Number(e.target.value) : null,
                               })
                             }
+                          />
+                        </td>
+                        <td style={{ textAlign: "center", width: 50 }}>
+                          <input
+                            type="checkbox"
+                            checked={r.isDnf}
+                            title="No terminó la carrera (suma participación, no posición)"
+                            onChange={(e) => patchResult(i, { isDnf: e.target.checked })}
                           />
                         </td>
                         <td style={{ textAlign: "center" }}>{r.isReserve ? "Sí (RD)" : "—"}</td>

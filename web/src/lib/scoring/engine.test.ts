@@ -500,3 +500,96 @@ describe("penalties (Art. 23–24)", () => {
     expect(a.races[0].penaltyPoints).toBe(-3);
   });
 });
+
+describe("DNF (started but did not finish)", () => {
+  const team: Team = {
+    id: "t1", name: "Equipo 1", escuderia: "Ferrari", category: "F1",
+    driver1Id: "a", driver2Id: "b",
+  };
+  const drv = [
+    { id: "a", alias: "A", active: true },
+    { id: "b", alias: "B", active: true },
+    { id: "res", alias: "RES", active: true },
+  ];
+
+  it("earns the participation point but no position points", () => {
+    const data = makeData({
+      drivers: drv, teams: [team],
+      races: [RACES[0]],
+      results: [
+        { raceId: "r1", driverId: "a", category: "F1", position: 1, isReserve: false },
+        { raceId: "r1", driverId: "b", category: "F1", position: 5, isReserve: false, isDnf: true },
+      ],
+    });
+    const rows = computeDriverStandings(data, "F1");
+    const b = rows.find((r) => r.driverId === "b")!;
+    expect(b.positionPoints).toBe(0);
+    expect(b.participationPoints).toBe(1);
+    expect(b.totalPoints).toBe(1);
+    expect(b.races[0].dnf).toBe(true);
+    expect(b.races[0].points).toBe(1);
+  });
+
+  it("DNF position is excluded from posProm; best lap still counts", () => {
+    const data = makeData({
+      drivers: drv, teams: [team], races: RACES,
+      results: [
+        { raceId: "r1", driverId: "a", category: "F1", position: 2, isReserve: false, bestTime: 40.5 },
+        { raceId: "r2", driverId: "a", category: "F1", position: 8, isReserve: false, isDnf: true, bestTime: 39.9 },
+        { raceId: "r3", driverId: "a", category: "F1", position: 4, isReserve: false, bestTime: 41.0 },
+      ],
+    });
+    const a = computeDriverStandings(data, "F1").find((r) => r.driverId === "a")!;
+    // Only finished races average: (2 + 4) / 2 = 3, not (2+8+4)/3.
+    expect(a.posProm).toBe(3);
+    // The DNF lap was his fastest and still counts.
+    expect(a.bestTime).toBe(39.9);
+  });
+
+  it("team keeps the attendance point but gets no position points from a DNF", () => {
+    const data = makeData({
+      drivers: drv, teams: [team],
+      races: [RACES[0]],
+      results: [
+        { raceId: "r1", driverId: "a", category: "F1", position: 1, isReserve: false },
+        { raceId: "r1", driverId: "b", category: "F1", position: 6, isReserve: false, isDnf: true },
+      ],
+    });
+    const t1 = computeTeamStandings(data, "F1").find((r) => r.teamId === "t1")!;
+    // 16 (a P1) + 0 (b DNF) + 2 attendance (both started) = 18.
+    expect(t1.totalPoints).toBe(18);
+    expect(t1.participationPoints).toBe(2);
+    // Team posProm only counts a's finish.
+    expect(t1.posProm).toBe(1);
+  });
+
+  it("a reserve's DNF gives the replaced team no half points", () => {
+    const data = makeData({
+      drivers: drv, teams: [team],
+      races: [RACES[0]],
+      results: [
+        { raceId: "r1", driverId: "a", category: "F1", position: 1, isReserve: false },
+        { raceId: "r1", driverId: "res", category: "F1", position: 3, isReserve: true, replacedTeamId: "t1", isDnf: true },
+      ],
+    });
+    const t1 = computeTeamStandings(data, "F1").find((r) => r.teamId === "t1")!;
+    // 16 (a) + 0*0.5 (res DNF) + 1 attendance (only a official) = 17.
+    expect(t1.totalPoints).toBe(17);
+  });
+
+  it("a DNF cell is a candidate for the worst-result drop", () => {
+    const data = makeData({
+      drivers: drv, teams: [team], races: RACES,
+      results: [
+        { raceId: "r1", driverId: "a", category: "F1", position: 1, isReserve: false },
+        { raceId: "r2", driverId: "a", category: "F1", position: 3, isReserve: false, isDnf: true },
+        { raceId: "r3", driverId: "a", category: "F1", position: 2, isReserve: false },
+      ],
+    });
+    const a = computeDriverStandings(data, "F1").find((r) => r.driverId === "a")!;
+    // Cells: 17 (P1+part), 1 (DNF+part), 16 (P2+part). Attended all → drops the DNF cell.
+    expect(a.droppedPoints).toBe(1);
+    expect(a.totalPoints).toBe(17 + 16);
+    expect(a.races.find((c) => c.raceId === "r2")!.dropped).toBe(true);
+  });
+});

@@ -13,6 +13,7 @@ interface ResultRow {
   alias: string;
   escuderia: string;
   isReserve: boolean;
+  isDnf: boolean;
   pts: number;
 }
 
@@ -52,7 +53,9 @@ function buildBlocks(data: ChampionshipData): DateBlock[] {
             ? "RD"
             : escByDriver[cat].get(r.driverId) ?? "—",
           isReserve: r.isReserve,
-          pts: positionPoints(r.position, cat, data.config),
+          isDnf: r.isDnf ?? false,
+          // DNF: started but didn't finish, no position points.
+          pts: r.isDnf ? 0 : positionPoints(r.position, cat, data.config),
         }));
     blocks.push({
       raceId: race.id,
@@ -84,9 +87,18 @@ function ResultsTable({ rows }: { rows: ResultRow[] }) {
           {rows.map((r) => {
             const c = CONSTRUCTOR_COLORS[r.escuderia] ?? { bg: "#333", fg: "#fff" };
             return (
-              <tr key={`${r.alias}-${r.pos}`} className={rowClass(r.pos)}>
+              <tr key={`${r.alias}-${r.pos}`} className={r.isDnf ? "" : rowClass(r.pos)}>
                 <td>
-                  <span className={rankBadgeClass(r.pos)}>{r.pos}</span>
+                  {r.isDnf ? (
+                    <span
+                      className="rank-badge dnf"
+                      title="No terminó la carrera — suma participación, sin puntos por posición"
+                    >
+                      DNF
+                    </span>
+                  ) : (
+                    <span className={rankBadgeClass(r.pos)}>{r.pos}</span>
+                  )}
                 </td>
                 <td className="pilot-cell">
                   {r.alias}

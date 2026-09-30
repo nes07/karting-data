@@ -367,7 +367,8 @@ export function buildRoundShare(
         r.bestTime != null && best != null
           ? `+${(r.bestTime - best).toFixed(3)}`
           : "—",
-      pts: positionPoints(r.position, cat, data.config),
+      // DNF: started but didn't finish, no position points.
+      pts: r.isDnf ? 0 : positionPoints(r.position, cat, data.config),
     };
   });
 

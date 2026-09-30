@@ -199,7 +199,8 @@ export function buildLastRace(
       return {
         rank: r.position,
         label: alias,
-        pts: fmtPts(positionPoints(r.position, cat, data.config)),
+        // DNF: started but didn't finish, no position points.
+        pts: fmtPts(r.isDnf ? 0 : positionPoints(r.position, cat, data.config)),
         escuderia: r.isReserve ? null : escByDriver.get(r.driverId) ?? null,
         photo: photos[alias] ?? null,
       };

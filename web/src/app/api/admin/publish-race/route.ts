@@ -15,6 +15,8 @@ interface PublishBody {
     bestTime: number | null;
     isReserve: boolean;
     replacedTeamId: string | null;
+    /** Started but didn't finish: participation point only, no position points. */
+    isDnf?: boolean;
   }>;
   dotd: Array<{
     driverId: string;
@@ -71,6 +73,7 @@ export async function POST(request: Request) {
         best_time: r.bestTime,
         is_reserve: r.isReserve,
         replaced_team_id: r.replacedTeamId,
+        is_dnf: r.isDnf ?? false,
       })),
       { onConflict: "race_id,driver_id,category" }
     );

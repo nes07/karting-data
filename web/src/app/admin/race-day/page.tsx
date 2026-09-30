@@ -37,6 +37,8 @@ interface ResultDraft {
   bestTime: number | null;
   isReserve: boolean;
   replacedTeamId: string | null;
+  /** Started but didn't finish: participation point only, no position points. */
+  isDnf: boolean;
 }
 
 const MONTHS = [
@@ -160,6 +162,7 @@ export default function RaceDayPage() {
           bestTime: t.bestTime,
           isReserve: !officialIds[cat].has(t.driverId!),
           replacedTeamId: null,
+          isDnf: false,
         });
       });
     }
@@ -192,6 +195,7 @@ export default function RaceDayPage() {
         bestTime: null,
         isReserve: false,
         replacedTeamId: null,
+        isDnf: false,
       },
     ]);
   }
@@ -464,7 +468,16 @@ export default function RaceDayPage() {
               </h2>
               <table className="admin-table">
                 <thead>
-                  <tr><th>Pos</th><th>Piloto</th><th>Suplente</th><th>Reemplaza a</th><th></th></tr>
+                  <tr>
+                    <th>Pos</th>
+                    <th>Piloto</th>
+                    <th title="No terminó la carrera: suma participación pero no puntos por posición">
+                      DNF
+                    </th>
+                    <th>Suplente</th>
+                    <th>Reemplaza a</th>
+                    <th></th>
+                  </tr>
                 </thead>
                 <tbody>
                   {results.map((r, i) =>
@@ -497,6 +510,14 @@ export default function RaceDayPage() {
                               <option key={d.id} value={d.id}>{d.alias}</option>
                             ))}
                           </select>
+                        </td>
+                        <td style={{ textAlign: "center", width: 50 }}>
+                          <input
+                            type="checkbox"
+                            checked={r.isDnf}
+                            title="No terminó la carrera (suma participación, no posición)"
+                            onChange={(e) => patchResult(i, { isDnf: e.target.checked })}
+                          />
                         </td>
                         <td style={{ textAlign: "center" }}>
                           {r.isReserve ? "Sí (RD)" : "—"}

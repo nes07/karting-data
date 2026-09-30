@@ -29,6 +29,10 @@
  *                           DOTD − penalty) is subtracted from the team total.
  *                           Reserve (RD) drops never affect teams. posProm and
  *                           best time keep counting every race.
+ *   - DNF:                  started but didn't finish. No position points, but
+ *                           the participation point (and team attendance) still
+ *                           applies. The position doesn't count toward posProm;
+ *                           the best lap still counts (laps were driven).
  */
 
 import {
@@ -188,7 +192,8 @@ function aggregateDrivers(
     }
 
     const race = races[raceOrder.get(res.raceId)!];
-    const posPts = positionPoints(res.position, category, config);
+    // DNF: started but didn't finish -> no position points.
+    const posPts = res.isDnf ? 0 : positionPoints(res.position, category, config);
     // Art. 18: only official (non-reserve) pilots earn the participation bonus.
     const partPts = res.isReserve ? 0 : config.participationPoint;
     // Art. 19: DOTD adds to the individual total.
@@ -205,6 +210,7 @@ function aggregateDrivers(
       points: posPts + partPts + dotdPts + penPts,
       isReserve: res.isReserve,
       penaltyPoints: penPts,
+      dnf: res.isDnf || undefined,
     });
     agg.positionPoints += posPts;
     agg.participationPoints += partPts;
@@ -222,9 +228,11 @@ function aggregateDrivers(
     );
     agg.totalPoints =
       agg.positionPoints + agg.participationPoints + agg.dotdPoints + agg.penaltyPoints;
+    // DNF races have no valid finishing position, so they stay out of posProm.
+    const finished = agg.cells.filter((c) => !c.dnf);
     agg.posProm =
-      agg.cells.length > 0
-        ? agg.cells.reduce((s, c) => s + c.position, 0) / agg.cells.length
+      finished.length > 0
+        ? finished.reduce((s, c) => s + c.position, 0) / finished.length
         : null;
   }
 
@@ -425,8 +433,12 @@ function aggregateTeams(
       let droppedContribution = 0;
 
       for (const res of raceResults) {
+        // DNF: no position points, but attendance still counts (they started).
+        const resPosPts = res.isDnf
+          ? 0
+          : positionPoints(res.position, category, config);
         if (!res.isReserve && officialIds.includes(res.driverId)) {
-          racePoints += positionPoints(res.position, category, config);
+          racePoints += resPosPts;
           officialsPresent += 1;
           if (res.bestTime != null) {
             agg.bestTime =
@@ -437,16 +449,14 @@ function aggregateTeams(
           if (droppedRaceByDriver.get(res.driverId) === race.id) {
             const key = `${res.driverId}|${race.id}`;
             droppedContribution +=
-              positionPoints(res.position, category, config) +
+              resPosPts +
               config.teamParticipationPoint +
               (dotdByDriverRace.has(key) ? config.dotdPoint : 0) +
               (penaltyByDriverRace.get(key) ?? 0);
           }
         } else if (res.isReserve && res.replacedTeamId === team.id) {
           // Reserve (RD) drops never propagate to the replaced team.
-          racePoints +=
-            positionPoints(res.position, category, config) *
-            config.reserveTeamFactor;
+          racePoints += resPosPts * config.reserveTeamFactor;
         }
       }
 
@@ -484,6 +494,7 @@ function aggregateTeams(
           r.category === category &&
           raceOrder.has(r.raceId) &&
           !r.isReserve &&
+          !r.isDnf &&
           officialIds.includes(r.driverId)
       )
       .map((r) => r.position);

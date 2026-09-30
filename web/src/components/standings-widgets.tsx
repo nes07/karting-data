@@ -187,13 +187,15 @@ export function DriversTable({
                       title={
                         r?.dropped
                           ? "Peor desempeño descartado — no suma al total"
-                          : undefined
+                          : r?.dnf
+                            ? "No terminó la carrera — suma participación, sin puntos por posición"
+                            : undefined
                       }
                     >
                       {r ? (
                         <>
                           <span className={r.dropped ? "dropped-value" : undefined}>
-                            {r.position} / {r.points}
+                            {r.dnf ? "DNF" : r.position} / {r.points}
                           </span>
                           {r.penaltyPoints < 0 && (
                             <span className="penalty-badge">{r.penaltyPoints}</span>
