@@ -21,6 +21,19 @@ export function fmtTime(t: number | null | undefined): string {
   return Number(t).toFixed(3);
 }
 
+/** Gap to the leader's time, e.g. "+0.337"; "—" for the leader or missing times. */
+export function fmtGap(
+  time: number | null | undefined,
+  leaderTime: number | null | undefined,
+  rank: number
+): string {
+  if (rank === 1) return "—";
+  if (time == null || time >= 999 || leaderTime == null || leaderTime >= 999) {
+    return "—";
+  }
+  return `+${(time - leaderTime).toFixed(3)}`;
+}
+
 export function fmtPts(p: number | null | undefined): string {
   if (p == null) return "—";
   // 34.5 stays 34.5, 34 stays 34

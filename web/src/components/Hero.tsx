@@ -13,6 +13,43 @@ function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
+const FEATURES = [
+  {
+    label: "Compite en cada carrera",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+        <path d="M4 22h16" />
+        <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+        <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+        <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+      </svg>
+    ),
+  },
+  {
+    label: "Sigue los rankings",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+        <path d="M7 13v4" />
+        <path d="M12 9v8" />
+        <path d="M17 5v12" />
+      </svg>
+    ),
+  },
+  {
+    label: "Mejora tus tiempos",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <circle cx="12" cy="13" r="8" />
+        <path d="M12 9v4l2 2" />
+        <path d="M9 2h6" />
+      </svg>
+    ),
+  },
+] as const;
+
 export function Hero({ raceDates, compact }: Props) {
   const [now, setNow] = useState<Date | null>(null);
 
@@ -49,6 +86,15 @@ export function Hero({ raceDates, compact }: Props) {
       </h1>
       <p className="hero-sub">F1 Moderna · F1 Clásica · Todos contra todos</p>
 
+      <div className="hero-features">
+        {FEATURES.map((f) => (
+          <div key={f.label} className="hero-feature">
+            <span className="hero-feature-icon">{f.icon}</span>
+            <span>{f.label}</span>
+          </div>
+        ))}
+      </div>
+
       <div id="next-race-info">
         {now &&
           (next ? (
@@ -82,6 +128,25 @@ export function Hero({ raceDates, compact }: Props) {
             </span>
           ))}
         </div>
+      )}
+
+      {compact && (
+        <a href="#rankings" className="hero-cta">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+            <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+            <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+          </svg>
+          Sigue la acción
+        </a>
       )}
 
       {!compact && (

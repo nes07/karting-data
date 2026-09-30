@@ -50,7 +50,7 @@ describe("positionPoints", () => {
 });
 
 describe("driver standings", () => {
-  it("totals = position points + participation + DOTD", () => {
+  it("totals = position points + participation + DOTD (minus worst-result drop)", () => {
     const data = makeData({
       drivers: [driver("a"), driver("b")],
       races: RACES,
@@ -64,14 +64,17 @@ describe("driver standings", () => {
 
     const rows = computeDriverStandings(data, "F1");
     const a = rows.find((r) => r.driverId === "a")!;
-    // 16 + 15 position pts, +2 participation, +1 DOTD
-    expect(a.totalPoints).toBe(34);
+    // Cells: r1 = 16+1+1 = 18, r2 = 15+1 = 16. Attended every race, so the
+    // worst cell (16) is dropped automatically: 34 − 16 = 18.
+    expect(a.totalPoints).toBe(18);
+    expect(a.droppedPoints).toBe(16);
     expect(a.participationPoints).toBe(2);
     expect(a.dotdPoints).toBe(1);
 
     const b = rows.find((r) => r.driverId === "b")!;
-    // 15 + 1 participation
+    // 15 + 1 participation; missed r2, so the absence is the drop.
     expect(b.totalPoints).toBe(16);
+    expect(b.droppedPoints).toBe(0);
   });
 
   it("a 0-point finish still earns the participation point (Leo case)", () => {
@@ -140,7 +143,7 @@ describe("driver standings", () => {
     expect(res.participationPoints).toBe(0);
   });
 
-  it("DOTD is folded into the race cell so cells sum to the total", () => {
+  it("DOTD is folded into the race cell; cells minus the drop sum to the total", () => {
     const data = makeData({
       drivers: [driver("a")],
       races: RACES,
@@ -151,10 +154,10 @@ describe("driver standings", () => {
       dotd: [{ raceId: "r1", driverId: "a", category: "F1" }],
     });
     const a = computeDriverStandings(data, "F1").find((r) => r.driverId === "a")!;
-    // r1: 16 pos + 1 part + 1 dotd = 18; r2: 14 pos + 1 part = 15
+    // r1: 16 pos + 1 part + 1 dotd = 18; r2: 14 pos + 1 part = 15 (dropped)
     const cellSum = a.races.reduce((s, c) => s + c.points, 0);
     expect(a.races.find((c) => c.monthLabel === "Marzo")!.points).toBe(18);
-    expect(cellSum).toBe(a.totalPoints);
+    expect(cellSum - a.droppedPoints).toBe(a.totalPoints);
   });
 
   it("tiebreak: equal points -> better average position wins", () => {
@@ -162,18 +165,18 @@ describe("driver standings", () => {
       drivers: [driver("a"), driver("b")],
       races: RACES,
       results: [
-        // a: P3 then P5 -> 14 + 12 = 26 pts, posProm 4
+        // a: P3 then P5 -> cells 15, 13; drop 13 -> 15 pts, posProm 4
         { raceId: "r1", driverId: "a", category: "F1", position: 3, isReserve: false },
         { raceId: "r2", driverId: "a", category: "F1", position: 5, isReserve: false },
-        // b: P4 then P4 -> 13 + 13 = 26 pts, posProm 4... make b posProm worse
-        { raceId: "r1", driverId: "b", category: "F1", position: 6, isReserve: false },
-        { raceId: "r2", driverId: "b", category: "F1", position: 2, isReserve: false },
+        // b: P5 then P3 -> cells 13, 15; drop 13 -> 15 pts, posProm 4
+        { raceId: "r1", driverId: "b", category: "F1", position: 5, isReserve: false },
+        { raceId: "r2", driverId: "b", category: "F1", position: 3, isReserve: false },
       ],
     });
     const rows = computeDriverStandings(data, "F1");
-    // both have 26 + 2 = 28 points; a posProm 4 beats b posProm 4 — equal here,
-    // adjust: a (3+5)/2 = 4, b (6+2)/2 = 4 -> falls to bestTime (both null) -> stable
+    // both 15 pts and posProm 4 -> falls to bestTime (both null) -> stable
     expect(rows[0].totalPoints).toBe(rows[1].totalPoints);
+    expect(rows[0].posProm).toBe(rows[1].posProm);
   });
 
   it("variation: rank change vs standings before the latest race; debut is null", () => {
@@ -195,7 +198,8 @@ describe("driver standings", () => {
     const b = rows.find((r) => r.driverId === "b")!;
     const c = rows.find((r) => r.driverId === "c")!;
 
-    // Totals: a = 16+7+2 = 25, b = 15+16+2 = 33, c = 15+1 = 16
+    // With the worst-result drop both a and b end at 17 (drop r2/r1 resp.);
+    // tie broken by posProm: b 1.5 beats a 5.5. c keeps 16 (absence = drop).
     expect(b.rank).toBe(1);
     expect(a.rank).toBe(2);
     expect(c.rank).toBe(3);
@@ -280,11 +284,139 @@ describe("team standings", () => {
 
     const t1 = rows.find((r) => r.teamId === "t1")!;
     const t2 = rows.find((r) => r.teamId === "t2")!;
-    // Totals: t1 = 16+7+2 = 25, t2 = 15+16+2 = 33
+    // With inherited drops both teams end at 17; tie broken by posProm
+    // (t2 1.5 beats t1 5.5).
     expect(t2.rank).toBe(1);
     expect(t2.variation).toBe(1);
     expect(t1.rank).toBe(2);
     expect(t1.variation).toBe(-1);
+  });
+});
+
+describe("worst-result drop", () => {
+  const team: Team = {
+    id: "t1", name: "Equipo 1", escuderia: "Ferrari", category: "F1",
+    driver1Id: "a", driver2Id: "b",
+  };
+  const drivers = [driver("a"), driver("b"), driver("c"), driver("res")];
+
+  it("a driver who attended every race drops their worst cell", () => {
+    const data = makeData({
+      drivers,
+      races: RACES,
+      results: [
+        { raceId: "r1", driverId: "a", category: "F1", position: 1, isReserve: false }, // 17
+        { raceId: "r2", driverId: "a", category: "F1", position: 10, isReserve: false }, // 8
+        { raceId: "r3", driverId: "a", category: "F1", position: 2, isReserve: false }, // 16
+      ],
+    });
+    const a = computeDriverStandings(data, "F1").find((r) => r.driverId === "a")!;
+    expect(a.droppedPoints).toBe(8);
+    expect(a.totalPoints).toBe(33); // 17 + 16
+    const dropped = a.races.filter((c) => c.dropped);
+    expect(dropped).toHaveLength(1);
+    expect(dropped[0].monthLabel).toBe("Abril");
+  });
+
+  it("an absence counts as the worst result: no attended race is dropped", () => {
+    const data = makeData({
+      drivers,
+      races: RACES,
+      results: [
+        // b misses r2; someone else completes it.
+        { raceId: "r1", driverId: "b", category: "F1", position: 5, isReserve: false },
+        { raceId: "r2", driverId: "c", category: "F1", position: 1, isReserve: false },
+        { raceId: "r3", driverId: "b", category: "F1", position: 4, isReserve: false },
+      ],
+    });
+    const b = computeDriverStandings(data, "F1").find((r) => r.driverId === "b")!;
+    expect(b.droppedPoints).toBe(0);
+    expect(b.races.some((c) => c.dropped)).toBe(false);
+    expect(b.totalPoints).toBe(12 + 1 + 13 + 1); // P5 + P4, both races count
+  });
+
+  it("a negative cell (penalties) is dropped even with absences on record", () => {
+    const data = makeData({
+      drivers,
+      races: RACES,
+      results: [
+        // c races once: P17 = 0 pos pts, +1 part, −4 penalty = −3.
+        { raceId: "r1", driverId: "c", category: "F1", position: 17, isReserve: false },
+        { raceId: "r2", driverId: "a", category: "F1", position: 1, isReserve: false },
+      ],
+      penalties: [
+        { raceId: "r1", driverId: "c", category: "F1", level: "gravisima", points: -4 },
+      ],
+    });
+    const c = computeDriverStandings(data, "F1").find((r) => r.driverId === "c")!;
+    expect(c.droppedPoints).toBe(-3);
+    expect(c.totalPoints).toBe(0);
+    expect(c.races[0].dropped).toBe(true);
+  });
+
+  it("no drop with a single completed race", () => {
+    const data = makeData({
+      drivers,
+      races: RACES,
+      results: [
+        { raceId: "r1", driverId: "a", category: "F1", position: 1, isReserve: false },
+      ],
+    });
+    const a = computeDriverStandings(data, "F1").find((r) => r.driverId === "a")!;
+    expect(a.droppedPoints).toBe(0);
+    expect(a.totalPoints).toBe(17);
+    expect(a.races.some((c) => c.dropped)).toBe(false);
+  });
+
+  it("teams inherit the drop: the pilot's contribution leaves the team total", () => {
+    const data = makeData({
+      drivers,
+      teams: [team],
+      races: RACES,
+      results: [
+        // a attends all three; r2 is his worst (P10 + DOTD = 9 driver-side).
+        { raceId: "r1", driverId: "a", category: "F1", position: 1, isReserve: false },
+        { raceId: "r2", driverId: "a", category: "F1", position: 10, isReserve: false },
+        { raceId: "r3", driverId: "a", category: "F1", position: 2, isReserve: false },
+        // b misses r2 -> absence is his drop, contributes normally elsewhere.
+        { raceId: "r1", driverId: "b", category: "F1", position: 3, isReserve: false },
+        { raceId: "r3", driverId: "b", category: "F1", position: 4, isReserve: false },
+      ],
+      dotd: [{ raceId: "r2", driverId: "a", category: "F1" }],
+    });
+    const t1 = computeTeamStandings(data, "F1").find((r) => r.teamId === "t1")!;
+    // Cells: r1 = 16+14+2 = 32, r2 = 7+1+1(dotd) = 9, r3 = 15+13+2 = 30.
+    // a's r2 contribution (7 pos + 1 att + 1 dotd = 9) is inherited as drop.
+    const r2 = t1.races.find((c) => c.monthLabel === "Abril")!;
+    expect(r2.points).toBe(9);
+    expect(r2.droppedPoints).toBe(9);
+    expect(t1.droppedPoints).toBe(9);
+    expect(t1.totalPoints).toBe(32 + 9 + 30 - 9);
+  });
+
+  it("a reserve's drop never affects the replaced team", () => {
+    const t2: Team = {
+      id: "t2", name: "Equipo 2", escuderia: "McLaren", category: "F1",
+      driver1Id: "c", driver2Id: null,
+    };
+    const data = makeData({
+      drivers,
+      teams: [t2],
+      races: RACES,
+      results: [
+        // res races both dates replacing t2; attended all -> drops worst (r2).
+        { raceId: "r1", driverId: "res", category: "F1", position: 2, isReserve: true, replacedTeamId: "t2" },
+        { raceId: "r2", driverId: "res", category: "F1", position: 4, isReserve: true, replacedTeamId: "t2" },
+      ],
+    });
+    const res = computeDriverStandings(data, "F1").find((r) => r.driverId === "res")!;
+    expect(res.droppedPoints).toBe(13); // P4, no participation (RD)
+    expect(res.totalPoints).toBe(15);
+
+    const team2 = computeTeamStandings(data, "F1").find((r) => r.teamId === "t2")!;
+    // Halves intact: 15*0.5 + 13*0.5 = 14; nothing inherited from the RD drop.
+    expect(team2.droppedPoints).toBe(0);
+    expect(team2.totalPoints).toBe(14);
   });
 });
 

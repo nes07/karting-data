@@ -2,7 +2,9 @@
 import { CONSTRUCTOR_COLORS, teamLogoUrl } from "@/lib/constants";
 import { VueltaRapidaRow } from "@/lib/data";
 import { DriverStandingRow, TeamStandingRow } from "@/lib/scoring/types";
+import { ShareButton } from "./ShareButton";
 import {
+  fmtGap,
   fmtPts,
   fmtTime,
   formatShortDate,
@@ -130,9 +132,12 @@ export function PodiumTeam({
 export function DriversTable({
   rows,
   months,
+  shareEndpoint,
 }: {
   rows: DriverStandingRow[];
   months: string[];
+  /** When set, each row gets a share button generating its highlight image. */
+  shareEndpoint?: string;
 }) {
   if (rows.length === 0) {
     return <div className="table-empty">Aún no hay datos de standings.</div>;
@@ -154,6 +159,7 @@ export function DriversTable({
               </th>
             ))}
             <th>Prom</th>
+            {shareEndpoint && <th></th>}
           </tr>
         </thead>
         <tbody>
@@ -175,10 +181,20 @@ export function DriversTable({
                 {months.map((m) => {
                   const r = byMonth.get(m);
                   return (
-                    <td key={m} className={`pos-cell ${r ? "has-value" : ""}`}>
+                    <td
+                      key={m}
+                      className={`pos-cell ${r ? "has-value" : ""}${r?.dropped ? " dropped" : ""}`}
+                      title={
+                        r?.dropped
+                          ? "Peor desempeño descartado — no suma al total"
+                          : undefined
+                      }
+                    >
                       {r ? (
                         <>
-                          {r.position} / {r.points}
+                          <span className={r.dropped ? "dropped-value" : undefined}>
+                            {r.position} / {r.points}
+                          </span>
                           {r.penaltyPoints < 0 && (
                             <span className="penalty-badge">{r.penaltyPoints}</span>
                           )}
@@ -192,11 +208,27 @@ export function DriversTable({
                 <td className="pts-small">
                   {p.posProm != null ? p.posProm.toFixed(1) : "—"}
                 </td>
+                {shareEndpoint && (
+                  <td className="share-cell">
+                    <ShareButton
+                      compact
+                      endpoint={`${shareEndpoint}&highlight=${encodeURIComponent(p.alias)}`}
+                      filename={`gkd-${p.alias.toLowerCase().replace(/\s+/g, "-")}`}
+                      title={`${p.alias} — GKD Championship`}
+                    />
+                  </td>
+                )}
               </tr>
             );
           })}
         </tbody>
       </table>
+      {months.length >= 2 && (
+        <p className="table-footnote">
+          * Se descarta automáticamente el peor desempeño a la fecha de cada
+          piloto (tachado). Las ausencias cuentan como peor resultado.
+        </p>
+      )}
     </div>
   );
 }
@@ -204,9 +236,12 @@ export function DriversTable({
 export function TeamsTable({
   rows,
   months,
+  shareEndpoint,
 }: {
   rows: TeamStandingRow[];
   months: string[];
+  /** When set, each row gets a share button generating its highlight image. */
+  shareEndpoint?: string;
 }) {
   if (rows.length === 0) {
     return <div className="table-empty">Aún no hay datos de standings.</div>;
@@ -226,6 +261,7 @@ export function TeamsTable({
             {months.map((m) => (
               <th key={m}>{m.slice(0, 3)}</th>
             ))}
+            {shareEndpoint && <th></th>}
           </tr>
         </thead>
         <tbody>
@@ -255,12 +291,25 @@ export function TeamsTable({
                 {months.map((m) => {
                   const r = byMonth.get(m);
                   return (
-                    <td key={m} className="pts-small">
+                    <td
+                      key={m}
+                      className="pts-small"
+                      title={
+                        r && r.droppedPoints !== 0
+                          ? `Descarte heredado de piloto: −${fmtPts(r.droppedPoints)} pts`
+                          : undefined
+                      }
+                    >
                       {r ? (
                         <>
                           {fmtPts(r.points)}
                           {r.penaltyPoints < 0 && (
                             <span className="penalty-badge">{r.penaltyPoints}</span>
+                          )}
+                          {r.droppedPoints !== 0 && (
+                            <span className="dropped-badge">
+                              −{fmtPts(r.droppedPoints)}
+                            </span>
                           )}
                         </>
                       ) : (
@@ -269,11 +318,27 @@ export function TeamsTable({
                     </td>
                   );
                 })}
+                {shareEndpoint && (
+                  <td className="share-cell">
+                    <ShareButton
+                      compact
+                      endpoint={`${shareEndpoint}&highlight=${encodeURIComponent(t.escuderia)}`}
+                      filename={`gkd-${t.escuderia.toLowerCase().replace(/\s+/g, "-")}`}
+                      title={`${t.escuderia} — GKD Championship`}
+                    />
+                  </td>
+                )}
               </tr>
             );
           })}
         </tbody>
       </table>
+      {months.length >= 2 && (
+        <p className="table-footnote">
+          * El badge gris −X indica el aporte descontado por el descarte
+          automático del peor desempeño de un piloto del equipo.
+        </p>
+      )}
     </div>
   );
 }
@@ -378,10 +443,21 @@ export function PodiumResults({
   );
 }
 
-export function VueltaRapidaTable({ rows }: { rows: VueltaRapidaRow[] }) {
+export function VueltaRapidaTable({
+  rows,
+  shareEndpoint,
+  categories,
+}: {
+  rows: VueltaRapidaRow[];
+  /** When set, each row gets a share button generating its highlight image. */
+  shareEndpoint?: string;
+  /** Category per alias (official seat); adds a CAT column when provided. */
+  categories?: Record<string, "F1" | "F2" | null | undefined>;
+}) {
   if (rows.length === 0) {
     return <div className="table-empty">Aún no hay datos de vuelta rápida.</div>;
   }
+  const leaderTime = rows[0]?.time ?? null;
   return (
     <div className="standings-table-wrap">
       <table className="standings-table">
@@ -389,9 +465,12 @@ export function VueltaRapidaTable({ rows }: { rows: VueltaRapidaRow[] }) {
           <tr>
             <th>#</th>
             <th>Piloto</th>
+            {categories && <th>Cat</th>}
             <th>Tiempo</th>
+            <th>Gap to Leader</th>
             <th>Var</th>
             <th>Fecha</th>
+            {shareEndpoint && <th></th>}
           </tr>
         </thead>
         <tbody>
@@ -401,11 +480,35 @@ export function VueltaRapidaTable({ rows }: { rows: VueltaRapidaRow[] }) {
                 <RankBadge rank={r.rank} />
               </td>
               <td className="pilot-cell">{r.alias}</td>
+              {categories && (
+                <td>
+                  {categories[r.alias] ? (
+                    <span
+                      className={`home-vr-cat cat-${categories[r.alias]!.toLowerCase()}`}
+                    >
+                      {categories[r.alias]}
+                    </span>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+              )}
               <td className="time-cell">{fmtTime(r.time)}</td>
+              <td className="pts-small gap-cell">{fmtGap(r.time, leaderTime, r.rank)}</td>
               <td className="pts-small">
                 <VariationBadge v={r.variation} />
               </td>
               <td className="pts-small">{formatShortDate(r.date)}</td>
+              {shareEndpoint && (
+                <td className="share-cell">
+                  <ShareButton
+                    compact
+                    endpoint={`${shareEndpoint}&highlight=${encodeURIComponent(r.alias)}`}
+                    filename={`gkd-vr-${r.alias.toLowerCase().replace(/\s+/g, "-")}`}
+                    title={`${r.alias} — Vuelta Rápida GKD`}
+                  />
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

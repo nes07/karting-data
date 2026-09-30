@@ -115,6 +115,8 @@ export interface DriverRaceCell {
   isReserve: boolean;
   /** Total penalty deducted this race (0 if none, negative if penalized). */
   penaltyPoints: number;
+  /** True when this race is the driver's automatically dropped worst result. */
+  dropped?: boolean;
 }
 
 export interface DriverStandingRow {
@@ -131,6 +133,8 @@ export interface DriverStandingRow {
   /** Total penalty deductions this season (negative or 0). */
   penaltyPoints: number;
   races: DriverRaceCell[];
+  /** Points removed by the automatic worst-result drop (0 if none). */
+  droppedPoints: number;
   /** Average finishing position across attended races (tiebreaker 1). */
   posProm: number | null;
   /** Best lap across official races (tiebreaker 2). */
@@ -147,6 +151,8 @@ export interface TeamRaceCell {
   officialParticipated: boolean;
   /** Total penalty deducted this race (0 if none, negative if penalized). */
   penaltyPoints: number;
+  /** Points removed this race because a member's worst result was dropped (0 if none). */
+  droppedPoints: number;
 }
 
 export interface TeamStandingRow {
@@ -161,6 +167,8 @@ export interface TeamStandingRow {
   /** Total penalty deductions this season (negative or 0). */
   penaltyPoints: number;
   races: TeamRaceCell[];
+  /** Points removed by the drivers' automatic worst-result drops (0 if none). */
+  droppedPoints: number;
   posProm: number | null;
   bestTime: number | null;
   variation: number | null;
