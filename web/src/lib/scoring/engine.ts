@@ -33,6 +33,12 @@
  *                           the participation point (and team attendance) still
  *                           applies. The position doesn't count toward posProm;
  *                           the best lap still counts (laps were driven).
+ *   - Seat changes:         each result snapshots the team whose seat the
+ *                           driver held at that race (teamId). Team standings
+ *                           attribute by that snapshot, so replacing a team's
+ *                           pilots mid-season never erases points already
+ *                           earned. Results without a snapshot fall back to
+ *                           the current seat holders.
  */
 
 import {
@@ -288,8 +294,23 @@ export function computeDriverStandings(
   applyWorstDrop(previous, prevRaces.length);
   const previousRanks = rankMap(previous);
 
-  // Official escudería lookup for this category.
+  // Official escudería lookup: current seats first, then the snapshot team of
+  // the driver's latest official result (so retired pilots keep their team's
+  // colors instead of degrading to "RD").
+  const escuderiaByTeamId = new Map(teams.map((t) => [t.id, t.escuderia]));
   const escuderiaByDriver = new Map<string, string>();
+  const raceIdx = new Map(races.map((r, i) => [r.id, i]));
+  const latestIdx = new Map<string, number>();
+  for (const res of results) {
+    if (res.category !== category || res.isReserve || !res.teamId) continue;
+    const idx = raceIdx.get(res.raceId);
+    if (idx == null) continue;
+    if ((latestIdx.get(res.driverId) ?? -1) <= idx) {
+      latestIdx.set(res.driverId, idx);
+      const esc = escuderiaByTeamId.get(res.teamId);
+      if (esc) escuderiaByDriver.set(res.driverId, esc);
+    }
+  }
   for (const team of teams) {
     if (team.category !== category) continue;
     for (const id of [team.driver1Id, team.driver2Id]) {
@@ -354,6 +375,27 @@ function aggregateTeams(
   const raceOrder = new Map(races.map((r, i) => [r.id, i]));
   const categoryTeams = teams.filter((t) => t.category === category);
 
+  // Current seat holders, used only as fallback for results that predate the
+  // team_id snapshot column.
+  const seatTeamByDriver = new Map<string, string>();
+  for (const t of categoryTeams) {
+    for (const id of [t.driver1Id, t.driver2Id]) {
+      if (id) seatTeamByDriver.set(id, t.id);
+    }
+  }
+  /** Team an official (non-reserve) result belongs to: snapshot, else seats. */
+  const resultTeamId = (res: RaceResult): string | null =>
+    res.isReserve ? null : res.teamId ?? seatTeamByDriver.get(res.driverId) ?? null;
+
+  // Team per "driverId|raceId" from the actual results, so DOTD and penalties
+  // land on the team the driver raced for THAT day (survives seat changes).
+  const teamByDriverRace = new Map<string, string>();
+  for (const res of results) {
+    if (res.category !== category || !raceOrder.has(res.raceId)) continue;
+    const teamId = resultTeamId(res);
+    if (teamId) teamByDriverRace.set(`${res.driverId}|${res.raceId}`, teamId);
+  }
+
   // Per-driver DOTD / penalty lookups, needed to price a dropped pilot's
   // exact contribution to their team on the dropped race.
   const dotdByDriverRace = new Set<string>();
@@ -370,29 +412,22 @@ function aggregateTeams(
     }
   }
 
-  // Official seat -> team id (this category), to credit DOTD to the right team.
-  const teamByDriver = new Map<string, string>();
-  for (const t of categoryTeams) {
-    for (const id of [t.driver1Id, t.driver2Id]) {
-      if (id) teamByDriver.set(id, t.id);
-    }
-  }
   // DOTD bonus per "teamId|raceId" (Art. 19: also to the winner's team).
   const teamDotd = new Map<string, number>();
   for (const d of dotd) {
     if (d.category !== category || !raceOrder.has(d.raceId)) continue;
-    const teamId = teamByDriver.get(d.driverId);
-    if (!teamId) continue; // invited winner has no official seat here
+    const teamId = teamByDriverRace.get(`${d.driverId}|${d.raceId}`);
+    if (!teamId) continue; // invited winner raced no official seat that day
     const key = `${teamId}|${d.raceId}`;
     teamDotd.set(key, (teamDotd.get(key) ?? 0) + config.dotdPoint);
   }
 
   // Penalty deductions per "teamId|raceId" (Art. 23: also to the pilot's team).
-  // Suplentes have no official seat here so they don't affect any team.
+  // Suplentes raced no official seat so they don't affect any team.
   const teamPenalty = new Map<string, number>();
   for (const p of penalties) {
     if (p.category !== category || !raceOrder.has(p.raceId)) continue;
-    const teamId = teamByDriver.get(p.driverId);
+    const teamId = teamByDriverRace.get(`${p.driverId}|${p.raceId}`);
     if (!teamId) continue; // suplente: only affects individual standing
     const key = `${teamId}|${p.raceId}`;
     teamPenalty.set(key, (teamPenalty.get(key) ?? 0) + p.points);
@@ -422,9 +457,6 @@ function aggregateTeams(
 
     for (const team of categoryTeams) {
       const agg = byTeam.get(team.id)!;
-      const officialIds = [team.driver1Id, team.driver2Id].filter(
-        (x): x is string => x != null
-      );
 
       let racePoints = 0;
       let officialsPresent = 0;
@@ -437,7 +469,7 @@ function aggregateTeams(
         const resPosPts = res.isDnf
           ? 0
           : positionPoints(res.position, category, config);
-        if (!res.isReserve && officialIds.includes(res.driverId)) {
+        if (!res.isReserve && resultTeamId(res) === team.id) {
           racePoints += resPosPts;
           officialsPresent += 1;
           if (res.bestTime != null) {
@@ -485,9 +517,6 @@ function aggregateTeams(
   // Average position across all official pilots' results, all races.
   for (const team of categoryTeams) {
     const agg = byTeam.get(team.id)!;
-    const officialIds = [team.driver1Id, team.driver2Id].filter(
-      (x): x is string => x != null
-    );
     const positions = results
       .filter(
         (r) =>
@@ -495,7 +524,7 @@ function aggregateTeams(
           raceOrder.has(r.raceId) &&
           !r.isReserve &&
           !r.isDnf &&
-          officialIds.includes(r.driverId)
+          resultTeamId(r) === team.id
       )
       .map((r) => r.position);
     agg.posProm =

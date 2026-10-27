@@ -593,3 +593,71 @@ describe("DNF (started but did not finish)", () => {
     expect(a.races.find((c) => c.raceId === "r2")!.dropped).toBe(true);
   });
 });
+
+describe("seat changes (team snapshot)", () => {
+  // Minardi case: old and new pilots hold the same team's seat across races.
+  const team: Team = {
+    id: "t1", name: "Equipo 1", escuderia: "Minardi", category: "F2",
+    driver1Id: "new1", driver2Id: "new2", // current seats: the NEW pilots
+  };
+  const drivers = [
+    driver("old1"), driver("old2"), driver("new1"), driver("new2"),
+  ];
+
+  it("team keeps points earned by retired pilots via the teamId snapshot", () => {
+    const data = makeData({
+      drivers, teams: [team], races: RACES,
+      results: [
+        // r1: the old pilots raced holding t1's seats (snapshot teamId: t1).
+        { raceId: "r1", driverId: "old1", category: "F2", position: 1, isReserve: false, teamId: "t1" },
+        { raceId: "r1", driverId: "old2", category: "F2", position: 2, isReserve: false, teamId: "t1" },
+        // r2: the new pilots.
+        { raceId: "r2", driverId: "new1", category: "F2", position: 3, isReserve: false, teamId: "t1" },
+        { raceId: "r2", driverId: "new2", category: "F2", position: 4, isReserve: false, teamId: "t1" },
+      ],
+    });
+    const t1 = computeTeamStandings(data, "F2").find((r) => r.teamId === "t1")!;
+    // r1: 16+15 pos + 2 attendance = 33; r2: 14+13 + 2 = 29. Drop rule applies
+    // to drivers individually: each attended only 1 of 2 races (absence is the
+    // drop), so nothing is inherited. Total = 33 + 29 = 62.
+    expect(t1.races.find((c) => c.raceId === "r1")!.points).toBe(33);
+    expect(t1.races.find((c) => c.raceId === "r2")!.points).toBe(29);
+    expect(t1.totalPoints).toBe(62);
+    // posProm counts all four finishes: (1+2+3+4)/4.
+    expect(t1.posProm).toBe(2.5);
+  });
+
+  it("falls back to current seats when a result has no snapshot", () => {
+    const data = makeData({
+      drivers, teams: [team],
+      races: [RACES[0]],
+      results: [
+        // Legacy row without teamId: new1 holds a current seat → counts.
+        { raceId: "r1", driverId: "new1", category: "F2", position: 1, isReserve: false },
+        // old1 has no snapshot and no current seat → credits no team.
+        { raceId: "r1", driverId: "old1", category: "F2", position: 2, isReserve: false },
+      ],
+    });
+    const t1 = computeTeamStandings(data, "F2").find((r) => r.teamId === "t1")!;
+    expect(t1.totalPoints).toBe(16 + 1); // new1 P1 + 1 attendance
+  });
+
+  it("DOTD and penalties follow the snapshot team, and retired pilots keep their escudería", () => {
+    const data = makeData({
+      drivers, teams: [team],
+      races: [RACES[0]],
+      results: [
+        { raceId: "r1", driverId: "old1", category: "F2", position: 1, isReserve: false, teamId: "t1" },
+      ],
+      dotd: [{ raceId: "r1", driverId: "old1", category: "F2" }],
+      penalties: [{ raceId: "r1", driverId: "old1", category: "F2", level: "leve", points: -1 }],
+    });
+    const t1 = computeTeamStandings(data, "F2").find((r) => r.teamId === "t1")!;
+    // 16 pos + 1 attendance + 1 DOTD − 1 penalty = 17.
+    expect(t1.totalPoints).toBe(17);
+
+    const old1 = computeDriverStandings(data, "F2").find((r) => r.driverId === "old1")!;
+    expect(old1.escuderia).toBe("Minardi");
+    expect(old1.isReserve).toBe(false);
+  });
+});

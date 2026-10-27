@@ -40,6 +40,8 @@ interface ResultDraft {
   replacedTeamId: string | null;
   /** Started but didn't finish: participation point only, no position points. */
   isDnf: boolean;
+  /** Team whose seat the driver holds (snapshot saved with the result). */
+  teamId: string | null;
 }
 
 
@@ -84,6 +86,17 @@ export default function RaceDayPage() {
     }
     return m;
   }, [teams]);
+
+  /** Team currently holding the driver's seat in the category (null if none). */
+  function seatTeamId(driverId: string, cat: "F1" | "F2"): string | null {
+    return (
+      teams.find(
+        (t) =>
+          t.category === cat &&
+          (t.driver1_id === driverId || t.driver2_id === driverId)
+      )?.id ?? null
+    );
+  }
 
   async function loadSessions() {
     setLoading(true);
@@ -161,6 +174,7 @@ export default function RaceDayPage() {
           isReserve: !officialIds[cat].has(t.driverId!),
           replacedTeamId: null,
           isDnf: false,
+          teamId: seatTeamId(t.driverId!, cat),
         });
       });
     }
@@ -194,6 +208,7 @@ export default function RaceDayPage() {
         isReserve: false,
         replacedTeamId: null,
         isDnf: false,
+        teamId: null,
       },
     ]);
   }
@@ -500,6 +515,7 @@ export default function RaceDayPage() {
                               patchResult(i, {
                                 driverId,
                                 isReserve: driverId ? !officialIds[cat].has(driverId) : false,
+                                teamId: driverId ? seatTeamId(driverId, cat) : null,
                               });
                             }}
                           >

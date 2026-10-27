@@ -49,6 +49,12 @@ export interface RaceResult {
    * position doesn't count toward posProm. Best lap still counts.
    */
   isDnf?: boolean;
+  /**
+   * Team whose seat the driver held AT THE TIME of this race (snapshot).
+   * Keeps team points intact when seats change mid-season. Null/undefined
+   * rows fall back to the current seat holders; always null for reserves.
+   */
+  teamId?: string | null;
 }
 
 export interface DotdAward {

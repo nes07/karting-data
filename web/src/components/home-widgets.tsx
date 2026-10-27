@@ -177,6 +177,7 @@ export function buildLastRace(
   if (!race) return null;
 
   const aliasById = new Map(data.drivers.map((d) => [d.id, d.alias]));
+  const escByTeam = new Map(data.teams.map((t) => [t.id, t.escuderia]));
   const escByDriver = new Map<string, string>();
   for (const t of data.teams) {
     if (t.category !== cat) continue;
@@ -201,7 +202,12 @@ export function buildLastRace(
         label: alias,
         // DNF: started but didn't finish, no position points.
         pts: fmtPts(r.isDnf ? 0 : positionPoints(r.position, cat, data.config)),
-        escuderia: r.isReserve ? null : escByDriver.get(r.driverId) ?? null,
+        // Snapshot team first (survives seat changes), then current seats.
+        escuderia: r.isReserve
+          ? null
+          : (r.teamId ? escByTeam.get(r.teamId) : undefined) ??
+            escByDriver.get(r.driverId) ??
+            null,
         photo: photos[alias] ?? null,
       };
     });

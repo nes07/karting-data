@@ -17,6 +17,8 @@ interface PublishBody {
     replacedTeamId: string | null;
     /** Started but didn't finish: participation point only, no position points. */
     isDnf?: boolean;
+    /** Team whose seat the driver held at this race (snapshot, null for RD). */
+    teamId?: string | null;
   }>;
   dotd: Array<{
     driverId: string;
@@ -74,6 +76,7 @@ export async function POST(request: Request) {
         is_reserve: r.isReserve,
         replaced_team_id: r.replacedTeamId,
         is_dnf: r.isDnf ?? false,
+        team_id: r.isReserve ? null : r.teamId ?? null,
       })),
       { onConflict: "race_id,driver_id,category" }
     );

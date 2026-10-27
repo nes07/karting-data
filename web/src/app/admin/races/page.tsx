@@ -37,6 +37,8 @@ interface ResultDraft {
   replacedTeamId: string | null;
   /** Started but didn't finish: participation point only, no position points. */
   isDnf: boolean;
+  /** Team whose seat the driver held at this race (snapshot, null for RD). */
+  teamId: string | null;
 }
 interface DotdDraft {
   driverId: string;
@@ -82,6 +84,17 @@ export default function RacesAdminPage() {
     }
     return m;
   }, [teams]);
+
+  /** Team currently holding the driver's seat in the category (null if none). */
+  const seatTeamId = useCallback(
+    (driverId: string, cat: Category): string | null =>
+      teams.find(
+        (t) =>
+          t.category === cat &&
+          (t.driver1_id === driverId || t.driver2_id === driverId)
+      )?.id ?? null,
+    [teams]
+  );
 
   const calendarRaces = useMemo(
     () => [...races].sort((a, b) => a.date.localeCompare(b.date)),
@@ -231,6 +244,7 @@ export default function RacesAdminPage() {
             isReserve: r.is_reserve,
             replacedTeamId: r.replaced_team_id,
             isDnf: r.is_dnf ?? false,
+            teamId: r.team_id ?? null,
           }))
           .sort((a, b) => a.position - b.position)
       );
@@ -268,6 +282,7 @@ export default function RacesAdminPage() {
           isReserve: false,
           replacedTeamId: null,
           isDnf: false,
+          teamId: null,
         },
       ];
     });
@@ -301,6 +316,11 @@ export default function RacesAdminPage() {
             is_reserve: r.isReserve,
             replaced_team_id: r.isReserve ? r.replacedTeamId : null,
             is_dnf: r.isDnf,
+            // Snapshot of the seat at this race; kept as loaded for untouched
+            // rows so editing an old race never re-attributes retired pilots.
+            team_id: r.isReserve
+              ? null
+              : r.teamId ?? seatTeamId(r.driverId, r.category),
           }))
         );
         if (ins.error) throw new Error(ins.error.message);
@@ -612,6 +632,7 @@ export default function RacesAdminPage() {
                               patchResult(i, {
                                 driverId,
                                 isReserve: driverId ? !officialIds[cat].has(driverId) : false,
+                                teamId: driverId ? seatTeamId(driverId, cat) : null,
                               });
                             }}
                           >

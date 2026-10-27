@@ -332,6 +332,7 @@ export function buildRoundShare(
   if (!race) return null;
 
   const aliasById = new Map(data.drivers.map((d) => [d.id, d.alias]));
+  const escByTeam = new Map(data.teams.map((t) => [t.id, t.escuderia]));
   const escByDriver = new Map<string, string>();
   for (const t of data.teams) {
     if (t.category !== cat) continue;
@@ -360,7 +361,12 @@ export function buildRoundShare(
     return {
       pos: r.position,
       alias,
-      escuderia: r.isReserve ? "RD" : escByDriver.get(r.driverId) ?? "—",
+      // Snapshot team first (survives seat changes), then current seats.
+      escuderia: r.isReserve
+        ? "RD"
+        : (r.teamId ? escByTeam.get(r.teamId) : undefined) ??
+          escByDriver.get(r.driverId) ??
+          "—",
       photo: photos[alias] ?? null,
       time: fmtShareTime(r.bestTime),
       dif:

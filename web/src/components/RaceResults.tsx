@@ -27,6 +27,7 @@ interface DateBlock {
 
 function buildBlocks(data: ChampionshipData): DateBlock[] {
   const aliasById = new Map(data.drivers.map((d) => [d.id, d.alias]));
+  const escByTeam = new Map(data.teams.map((t) => [t.id, t.escuderia]));
   const escByDriver: Record<Category, Map<string, string>> = {
     F1: new Map(),
     F2: new Map(),
@@ -51,7 +52,10 @@ function buildBlocks(data: ChampionshipData): DateBlock[] {
           alias: aliasById.get(r.driverId) ?? "?",
           escuderia: r.isReserve
             ? "RD"
-            : escByDriver[cat].get(r.driverId) ?? "—",
+            : // Snapshot team first (survives seat changes), then current seats.
+              (r.teamId ? escByTeam.get(r.teamId) : undefined) ??
+              escByDriver[cat].get(r.driverId) ??
+              "—",
           isReserve: r.isReserve,
           isDnf: r.isDnf ?? false,
           // DNF: started but didn't finish, no position points.
