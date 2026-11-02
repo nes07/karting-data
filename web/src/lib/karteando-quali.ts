@@ -37,6 +37,42 @@ export interface GridRow {
   gridPosition: number | null;
 }
 
+/**
+ * Qualifying often includes drivers who are then removed from the race.
+ * Their session position must not stay in the grid: renumber 1..n following
+ * the quali order of the drivers who actually start.
+ */
+export function compactGridPositions<
+  T extends {
+    raceId?: string;
+    race_id?: string;
+    category: string;
+    gridPosition: number | null;
+  },
+>(rows: T[], category?: string): T[] {
+  const groups = new Map<string, number[]>();
+  rows.forEach((row, index) => {
+    if (category && row.category !== category) return;
+    if (row.gridPosition == null || row.gridPosition < 1) return;
+    const key = `${row.raceId ?? row.race_id ?? ""}:${row.category}`;
+    const list = groups.get(key) ?? [];
+    list.push(index);
+    groups.set(key, list);
+  });
+  const assigned = new Map<number, number>();
+  for (const indexes of groups.values()) {
+    const ordered = [...indexes].sort(
+      (a, b) => rows[a].gridPosition! - rows[b].gridPosition!
+    );
+    ordered.forEach((index, i) => assigned.set(index, i + 1));
+  }
+  return rows.map((row, index) => {
+    const grid = assigned.get(index);
+    if (grid == null || grid === row.gridPosition) return row;
+    return { ...row, gridPosition: grid };
+  });
+}
+
 /** Overlay qualifying positions onto imported race rows of the same category. */
 export function applyQualiToImported<T extends GridRow>(
   rows: T[],
@@ -50,7 +86,7 @@ export function applyQualiToImported<T extends GridRow>(
     byName.set(q.webName, q.position);
     if (q.driverId) byDriver.set(q.driverId, q.position);
   }
-  return rows.map((row) => {
+  const overlaid = rows.map((row) => {
     if (row.category !== category) return row;
     const gp =
       (row.driverId ? byDriver.get(row.driverId) : undefined) ??
@@ -58,4 +94,5 @@ export function applyQualiToImported<T extends GridRow>(
       null;
     return { ...row, gridPosition: gp };
   });
+  return compactGridPositions(overlaid, category);
 }

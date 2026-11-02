@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { compactGridPositions } from "@/lib/karteando-quali";
 import { dedupeLapTimes } from "@/lib/lap-times";
 import { CHAMPIONSHIP_MONTHS } from "@/lib/championship-months";
 import { parseRaceStart } from "@/lib/race-datetime";
@@ -310,8 +311,11 @@ export default function RacesAdminPage() {
       const del = await supabase.from("race_results").delete().eq("race_id", editing.id);
       if (del.error) throw new Error(del.error.message);
       if (clean.length > 0) {
+        const ranked = compactGridPositions(
+          clean.map((r) => ({ ...r, gridPosition: r.gridPosition ?? null }))
+        );
         const ins = await supabase.from("race_results").insert(
-          clean.map((r) => ({
+          ranked.map((r) => ({
             race_id: editing.id,
             driver_id: r.driverId,
             category: r.category,

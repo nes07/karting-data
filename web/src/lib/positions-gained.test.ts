@@ -4,7 +4,7 @@ import {
   positionsGained,
   positionsGainedClass,
 } from "./positions-gained";
-import { applyQualiToImported, guessQualiSessionId } from "./karteando-quali";
+import { applyQualiToImported, compactGridPositions, guessQualiSessionId } from "./karteando-quali";
 
 describe("positionsGained", () => {
   it("is grid minus finish (positive = gained)", () => {
@@ -70,8 +70,40 @@ describe("applyQualiToImported", () => {
       ],
       "F1"
     );
-    expect(next[0].gridPosition).toBe(4);
+    expect(next[0].gridPosition).toBe(2);
     expect(next[1].gridPosition).toBe(1);
     expect(next[2].gridPosition).toBeNull();
+  });
+
+  it("drops quali slots of drivers who are not in the race", () => {
+    const rows = [
+      { webName: "Nico", driverId: "d1", category: "F2" as const, gridPosition: null },
+      { webName: "Tuli", driverId: "d2", category: "F2" as const, gridPosition: null },
+    ];
+    const next = applyQualiToImported(
+      rows,
+      [
+        { webName: "Invitado A", position: 1, driverId: "x1" },
+        { webName: "Nico", position: 2, driverId: "d1" },
+        { webName: "Invitado B", position: 3, driverId: "x2" },
+        { webName: "Tuli", position: 5, driverId: "d2" },
+      ],
+      "F2"
+    );
+    expect(next.map((r) => r.gridPosition)).toEqual([1, 2]);
+  });
+});
+
+describe("compactGridPositions", () => {
+  it("renumbers each race on its own and leaves a full grid untouched", () => {
+    const rows = [
+      { raceId: "oct", category: "F2", gridPosition: 3 },
+      { raceId: "oct", category: "F2", gridPosition: 5 },
+      { raceId: "oct", category: "F2", gridPosition: null },
+      { raceId: "jun", category: "F2", gridPosition: 1 },
+      { raceId: "jun", category: "F2", gridPosition: 2 },
+    ];
+    const next = compactGridPositions(rows);
+    expect(next.map((r) => r.gridPosition)).toEqual([1, 2, null, 1, 2]);
   });
 });

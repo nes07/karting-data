@@ -25,6 +25,7 @@ import {
 } from "@/lib/scoring/types";
 
 import { computeVueltaRapida, type LapTimeInput, type VueltaRapidaRow } from "@/lib/vuelta-rapida";
+import { compactGridPositions } from "@/lib/karteando-quali";
 import { normalizeStartTime } from "@/lib/race-datetime";
 export { TRACK_RESET_DATE, type VueltaRapidaRow } from "@/lib/vuelta-rapida";
 
@@ -133,18 +134,20 @@ export async function loadSiteData(): Promise<SiteData> {
     isOfficial: r.is_official,
     startTime: normalizeStartTime(r.start_time ?? "12:00:00"),
   }));
-  const results: RaceResult[] = (res.data ?? []).map((r) => ({
-    raceId: r.race_id,
-    driverId: r.driver_id,
-    category: r.category,
-    position: r.position,
-    bestTime: r.best_time,
-    isReserve: r.is_reserve,
-    replacedTeamId: r.replaced_team_id,
-    isDnf: r.is_dnf ?? false,
-    teamId: r.team_id ?? null,
-    gridPosition: r.grid_position ?? null,
-  }));
+  const results: RaceResult[] = compactGridPositions(
+    (res.data ?? []).map((r) => ({
+      raceId: r.race_id,
+      driverId: r.driver_id,
+      category: r.category,
+      position: r.position,
+      bestTime: r.best_time,
+      isReserve: r.is_reserve,
+      replacedTeamId: r.replaced_team_id,
+      isDnf: r.is_dnf ?? false,
+      teamId: r.team_id ?? null,
+      gridPosition: r.grid_position ?? null,
+    }))
+  );
   const dotdAwards: DotdAward[] = (dt.data ?? []).map((d) => ({
     raceId: d.race_id,
     driverId: d.driver_id,

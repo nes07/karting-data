@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAdminUser } from "@/lib/admin";
+import { compactGridPositions } from "@/lib/karteando-quali";
 import { dedupeLapTimes } from "@/lib/lap-times";
 import { revalidatePublicSite } from "@/lib/revalidate-public";
 
@@ -68,8 +69,11 @@ export async function POST(request: Request) {
 
   // 2. Results
   if (body.results.length > 0) {
+    const ranked = compactGridPositions(
+      body.results.map((r) => ({ ...r, gridPosition: r.gridPosition ?? null }))
+    );
     const { error } = await supabase.from("race_results").upsert(
-      body.results.map((r) => ({
+      ranked.map((r) => ({
         race_id: race.id,
         driver_id: r.driverId,
         category: r.category,
