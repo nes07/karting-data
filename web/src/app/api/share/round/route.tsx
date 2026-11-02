@@ -19,6 +19,7 @@ export async function GET(request: Request) {
   const date = sp.get("date");
   const cat = parseCategory(sp);
   const format = parseFormat(sp);
+  const highlight = sp.get("highlight");
 
   if (!date) {
     return NextResponse.json({ error: "Falta date" }, { status: 400 });
@@ -35,7 +36,8 @@ export async function GET(request: Request) {
     date,
     cat,
     absolutizeRecord(driverPhotos, url.origin),
-    format
+    format,
+    highlight
   );
 
   if (!round) {

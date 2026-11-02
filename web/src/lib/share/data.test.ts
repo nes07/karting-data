@@ -274,6 +274,30 @@ describe("buildRoundShare", () => {
     expect(buildRoundShare(data, "2026-06-07", "F1", {}, "story")).toBeNull();
     expect(buildRoundShare(data, "2030-01-01", "F1", {}, "story")).toBeNull();
   });
+
+  it("builds a single-driver highlight with podium + context outside the top 10", () => {
+    const many: ChampionshipData = {
+      ...data,
+      drivers: Array.from({ length: 16 }, (_, i) => ({
+        id: `d${i + 1}`,
+        alias: `P${i + 1}`,
+        active: true,
+      })),
+      results: Array.from({ length: 16 }, (_, i) => ({
+        raceId: "r2",
+        driverId: `d${i + 1}`,
+        category: "F1" as const,
+        position: i + 1,
+        bestTime: 38 + i * 0.1,
+        isReserve: false,
+      })),
+    };
+    const round = buildRoundShare(many, "2026-07-05", "F1", {}, "post", "P15");
+    expect(round!.highlight?.alias).toBe("P15");
+    expect(round!.rows.slice(0, 3).map((r) => r.pos)).toEqual([1, 2, 3]);
+    expect(round!.rows.some((r) => r.alias === "P15")).toBe(true);
+    expect(round!.rows).toHaveLength(10);
+  });
 });
 
 describe("lastOfficialPositionsGained", () => {

@@ -79,7 +79,13 @@ function buildBlocks(data: ChampionshipData): DateBlock[] {
   return blocks.reverse();
 }
 
-function ResultsTable({ rows }: { rows: ResultRow[] }) {
+function ResultsTable({
+  rows,
+  shareEndpoint,
+}: {
+  rows: ResultRow[];
+  shareEndpoint?: string;
+}) {
   if (rows.length === 0) {
     return <div className="table-empty">Sin resultados.</div>;
   }
@@ -95,6 +101,7 @@ function ResultsTable({ rows }: { rows: ResultRow[] }) {
               Pos. ganadas
             </th>
             <th>Pts</th>
+            {shareEndpoint ? <th></th> : null}
           </tr>
         </thead>
         <tbody>
@@ -132,6 +139,16 @@ function ResultsTable({ rows }: { rows: ResultRow[] }) {
                   </span>
                 </td>
                 <td className="pts-total">{r.pts}</td>
+                {shareEndpoint ? (
+                  <td className="share-cell">
+                    <ShareButton
+                      compact
+                      endpoint={`${shareEndpoint}&highlight=${encodeURIComponent(r.alias)}`}
+                      filename={`gkd-round-${r.alias.toLowerCase().replace(/\s+/g, "-")}`}
+                      title={`${r.alias} — GKD Championship`}
+                    />
+                  </td>
+                ) : null}
               </tr>
             );
           })}
@@ -158,6 +175,7 @@ export function RaceResults({
 
   const block = blocks[active];
   const rows = cat === "F1" ? block.f1 : block.f2;
+  const shareEndpoint = `/api/share/round?date=${block.date}&cat=${cat}`;
 
   return (
     <>
@@ -202,7 +220,7 @@ export function RaceResults({
             </button>
           </div>
           <ShareButton
-            endpoint={`/api/share/round?date=${block.date}&cat=${cat}`}
+            endpoint={shareEndpoint}
             filename={`gkd-round-${block.date}-${cat.toLowerCase()}`}
             title={`Resultados ${block.monthLabel} ${cat} — GKD Championship`}
           />
@@ -210,7 +228,7 @@ export function RaceResults({
       </div>
 
       <PodiumResults rows={rows} photos={photos} />
-      <ResultsTable rows={rows} />
+      <ResultsTable rows={rows} shareEndpoint={shareEndpoint} />
     </>
   );
 }

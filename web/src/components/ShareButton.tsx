@@ -54,10 +54,13 @@ export function ShareButton({
         new File([blob], `${filename}-${format}.png`, { type: "image/png" }),
       ];
 
-      if (
+      // Desktop Chrome reports canShare(files) but then also downloads, so
+      // native share is only used on coarse-pointer (phone) devices.
+      const nativeShare =
         typeof navigator.canShare === "function" &&
-        navigator.canShare({ files })
-      ) {
+        navigator.canShare({ files }) &&
+        window.matchMedia("(pointer: coarse)").matches;
+      if (nativeShare) {
         try {
           await navigator.share({ files, title });
           setStatus("done");

@@ -297,6 +297,7 @@ export interface RoundShare {
   roundNumber: number;
   rows: RoundShareRow[];
   truncated: boolean;
+  highlight: RoundShareRow | null;
 }
 
 export function buildRoundShare(
@@ -304,7 +305,8 @@ export function buildRoundShare(
   date: string,
   cat: Category,
   photos: Record<string, string>,
-  format: ShareFormat
+  format: ShareFormat,
+  highlightAlias?: string | null
 ): RoundShare | null {
   const race = data.races.find((r) => r.date === date);
   if (!race) return null;
@@ -357,9 +359,12 @@ export function buildRoundShare(
     };
   });
 
+  const highlight = highlightAlias
+    ? (all.find((r) => r.alias === highlightAlias) ?? null)
+    : null;
   const picked = selectRowsWithContext(
     all.map((r) => ({ ...r, rank: r.pos })),
-    null,
+    highlight?.pos ?? null,
     MAX_TABLE_ROWS[format]
   );
   return {
@@ -369,5 +374,6 @@ export function buildRoundShare(
     roundNumber: roundNumber > 0 ? roundNumber : 1,
     rows: picked.rows,
     truncated: picked.truncated,
+    highlight,
   };
 }

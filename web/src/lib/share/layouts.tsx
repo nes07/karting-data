@@ -514,6 +514,13 @@ function HighlightHero({ row, valueLabel }: { row: ShareRow; valueLabel: string 
   );
 }
 
+/** Microgramma Extended is wide; ~0.70em per capital on average. */
+function fitFontSize(text: string, maxWidth: number, max: number, min: number): number {
+  let size = max;
+  while (size > min && text.length * size * 0.7 > maxWidth) size -= 1;
+  return size;
+}
+
 function Table({
   rows,
   valueLabel,
@@ -522,6 +529,7 @@ function Table({
   showVar = true,
   varHeader = "VAR",
   extraHeader,
+  canvasWidth = 968,
 }: {
   rows: ShareRow[];
   valueLabel: string;
@@ -532,23 +540,41 @@ function Table({
   varHeader?: string;
   /** Header of the optional trailing column fed by row.extra. */
   extraHeader?: string;
+  /** Inner frame width (image width minus Frame padding). */
+  canvasWidth?: number;
 }) {
   const showGap = rows.some((r) => r.gap != null);
   const showExtra = extraHeader != null;
   const dense = showGap && showExtra;
-  const nameSize = dense ? (compact ? 21 : 25) : showGap ? (compact ? 22 : 26) : compact ? 25 : 30;
-  const badge = compact ? 36 : 48;
-  const pad = compact ? "4px 24px" : "12px 28px";
-  const escWidth = dense ? 190 : showGap ? 200 : 240;
-  const gapWidth = dense ? 170 : 190;
-  const valueWidth = dense ? 130 : showGap ? 140 : 150;
-  const varWidth = 74;
-  const extraWidth = 96;
+  const badge = compact ? 34 : 46;
+  const rowPadX = compact ? 16 : 22;
+  const posCol = compact ? 56 : 70;
+  const varCol = showVar ? Math.min(120, Math.max(56, varHeader.length * 13 + 10)) : 0;
+  const extraCol = showExtra ? (dense ? 62 : 80) : 0;
+  const gapCol = showGap ? (dense ? 96 : 130) : 0;
+  const valueCol = dense ? 112 : showGap ? 128 : 140;
+  const longestEsc = rows.reduce((m, r) => Math.max(m, (r.escuderia ?? "").length), 0);
+  const pillFs = compact ? 15 : 18;
+  const escCol = Math.min(dense ? 168 : 210, Math.max(72, Math.round(longestEsc * pillFs * 0.62 + pillFs * 1.8)));
+  const inner = canvasWidth - rowPadX * 2;
+  const nameCol = Math.max(
+    110,
+    inner - (posCol + varCol + extraCol + gapCol + valueCol + escCol + 16)
+  );
+  const longestName = rows.reduce((m, r) => Math.max(m, r.label.length), 1);
+  const nameSize = fitFontSize(
+    "X".repeat(longestName),
+    nameCol - 4,
+    dense ? (compact ? 20 : 24) : compact ? 24 : 28,
+    15
+  );
+  const pad = compact ? `4px ${rowPadX}px` : `10px ${rowPadX}px`;
   const headStyle: CSSProperties = {
-    fontSize: showGap ? 18 : 20,
+    fontSize: dense ? 15 : 18,
     color: C.gray,
-    letterSpacing: showGap ? 2 : 3,
+    letterSpacing: dense ? 1 : 2,
     fontWeight: 700,
+    flexShrink: 0,
   };
   return (
     <div
@@ -566,26 +592,26 @@ function Table({
         style={{
           display: "flex",
           alignItems: "center",
-          padding: "0 28px 12px",
+          padding: `0 ${rowPadX}px 12px`,
           borderBottom: `1px solid ${C.border}`,
         }}
       >
-        <div style={{ ...headStyle, width: 90, display: "flex" }}>POS</div>
+        <div style={{ ...headStyle, width: posCol, display: "flex" }}>POS</div>
         {showVar ? (
-          <div style={{ ...headStyle, width: varWidth, display: "flex" }}>{varHeader}</div>
+          <div style={{ ...headStyle, width: varCol, display: "flex" }}>{varHeader}</div>
         ) : null}
-        <div style={{ ...headStyle, flexGrow: 1, display: "flex" }}>{labelHeader}</div>
-        <div style={{ ...headStyle, width: escWidth, display: "flex" }}>ESCUDERÍA</div>
+        <div style={{ ...headStyle, width: nameCol, display: "flex", flexShrink: 1 }}>{labelHeader}</div>
+        <div style={{ ...headStyle, width: escCol, display: "flex" }}>ESC.</div>
         {showGap ? (
-          <div style={{ ...headStyle, width: gapWidth, display: "flex", justifyContent: "flex-end" }}>
-            GAP TO LEADER
+          <div style={{ ...headStyle, width: gapCol, display: "flex", justifyContent: "flex-end" }}>
+            {dense ? "GAP" : "GAP TO LEADER"}
           </div>
         ) : null}
-        <div style={{ ...headStyle, width: valueWidth, display: "flex", justifyContent: "flex-end" }}>
+        <div style={{ ...headStyle, width: valueCol, display: "flex", justifyContent: "flex-end" }}>
           {valueLabel}
         </div>
         {showExtra ? (
-          <div style={{ ...headStyle, width: extraWidth, display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ ...headStyle, width: extraCol, display: "flex", justifyContent: "flex-end" }}>
             {extraHeader}
           </div>
         ) : null}
@@ -656,7 +682,7 @@ function Table({
               maxHeight: compact ? 74 : 96,
             }}
           >
-            <div style={{ display: "flex", width: 78 }}>
+            <div style={{ display: "flex", width: posCol, flexShrink: 0 }}>
               <div
                 style={{
                   width: badge,
@@ -676,32 +702,36 @@ function Table({
               </div>
             </div>
             {showVar ? (
-              <div style={{ display: "flex", width: varWidth }}>
-                <VarBadge v={r.variation} fontSize={nameSize - 6} />
+              <div style={{ display: "flex", width: varCol, flexShrink: 0 }}>
+                <VarBadge v={r.variation} fontSize={Math.max(16, nameSize - 2)} />
               </div>
             ) : null}
             <div
               style={{
                 display: "flex",
-                flexGrow: 1,
+                width: nameCol,
+                overflow: "hidden",
+                flexShrink: 1,
                 fontFamily: HEAD,
-                fontSize: r.highlighted ? nameSize + 4 : nameSize,
+                fontSize: nameSize,
                 fontWeight: 700,
                 color: C.white,
+                whiteSpace: "nowrap",
               }}
             >
               {r.label}
             </div>
-            <div style={{ display: "flex", width: escWidth }}>
-              {r.escuderia ? <Pill escuderia={r.escuderia} fontSize={compact ? 18 : 20} /> : null}
+            <div style={{ display: "flex", width: escCol, flexShrink: 0, overflow: "hidden" }}>
+              {r.escuderia ? <Pill escuderia={r.escuderia} fontSize={pillFs} /> : null}
             </div>
             {showGap ? (
               <div
                 style={{
                   display: "flex",
-                  width: gapWidth,
+                  width: gapCol,
+                  flexShrink: 0,
                   justifyContent: "flex-end",
-                  fontSize: nameSize - 4,
+                  fontSize: Math.max(16, nameSize - 2),
                   fontWeight: 700,
                   color: r.gap === "—" ? "#3ddc84" : C.grayLight,
                 }}
@@ -712,10 +742,11 @@ function Table({
             <div
               style={{
                 display: "flex",
-                width: valueWidth,
+                width: valueCol,
+                flexShrink: 0,
                 justifyContent: "flex-end",
                 fontFamily: HEAD,
-                fontSize: nameSize + 2,
+                fontSize: nameSize + 1,
                 fontWeight: 700,
                 color: r.rank === 1 ? C.gold : C.white,
               }}
@@ -726,7 +757,8 @@ function Table({
               <div
                 style={{
                   display: "flex",
-                  width: extraWidth,
+                  width: extraCol,
+                  flexShrink: 0,
                   justifyContent: "flex-end",
                   fontFamily: HEAD,
                   fontSize: nameSize,
@@ -820,6 +852,7 @@ export function StandingsImage({
         valueLabel={data.valueLabel}
         labelHeader={data.labelHeader}
         compact={compact}
+        canvasWidth={width - 112}
       />
       <Footer />
     </Frame>
@@ -1019,11 +1052,22 @@ export function RoundImage({ round, format }: { round: RoundShare; format: Share
     value: r.time,
     photo: r.photo,
     variation: r.gained,
-    highlighted: false,
+    highlighted: round.highlight != null && r.alias === round.highlight.alias,
     // Best lap of the round shows "—" (green), same as the VR leader.
     gap: r.dif === "+0.000" ? "—" : r.dif,
     extra: String(r.pts),
   }));
+  const highlightRow = round.highlight
+    ? tableRows.find((r) => r.label === round.highlight!.alias) ?? {
+        rank: round.highlight.pos,
+        label: round.highlight.alias,
+        escuderia: round.highlight.escuderia,
+        value: round.highlight.time,
+        photo: round.highlight.photo,
+        variation: round.highlight.gained,
+        highlighted: true,
+      }
+    : null;
   const top3: ShareRow[] = round.rows
     .filter((r) => r.pos <= 3)
     .map((r) => ({
@@ -1035,7 +1079,7 @@ export function RoundImage({ round, format }: { round: RoundShare; format: Share
       variation: r.gained,
       highlighted: false,
     }));
-  const showPodium = top3.length >= 3;
+  const showPodium = !highlightRow && top3.length >= 3;
   const compact = format === "post" || round.rows.length > 10;
   return (
     <Frame width={width} height={height}>
@@ -1044,7 +1088,9 @@ export function RoundImage({ round, format }: { round: RoundShare; format: Share
         subtitle={`RESULTADOS ${round.category}`}
         meta={`${round.monthLabel} — ${shortDate(round.date)}`}
       />
-      {showPodium ? (
+      {highlightRow ? (
+        <HighlightHero row={highlightRow} valueLabel="TIEMPO" />
+      ) : showPodium ? (
         <Podium rows={top3} valueLabel="PTS" small={format === "post"} />
       ) : null}
       <Table
@@ -1055,6 +1101,7 @@ export function RoundImage({ round, format }: { round: RoundShare; format: Share
         showVar
         varHeader="GANADAS"
         extraHeader="PTS"
+        canvasWidth={width - 112}
       />
       <Footer />
     </Frame>
