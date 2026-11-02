@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { ShareButton } from "./ShareButton";
 import { CONSTRUCTOR_COLORS } from "@/lib/constants";
 import type { PublishedDebrief } from "@/lib/debrief/load";
 import type {
@@ -559,11 +560,18 @@ export function DebriefArticleView({
       <header className="debrief-block">
         <Ghosts left={headLeft} right={headRight} />
         <div className="debrief-block-inner debrief-head">
-          <p className="debrief-kicker">
-            <Link href="/debrief">Debrief</Link>
-            {" · "}
-            {item.monthLabel} · {formatLongDate(item.date)}
-          </p>
+          <div className="debrief-kicker-row">
+            <p className="debrief-kicker">
+              <Link href="/debrief">Debrief</Link>
+              {" · "}
+              {item.monthLabel} · {formatLongDate(item.date)}
+            </p>
+            <ShareButton
+              endpoint={`/api/share/debrief?date=${item.date}`}
+              filename={`gkd-debrief-${item.date}`}
+              title={item.title}
+            />
+          </div>
           <h1>{item.title}</h1>
           {item.excerpt ? <p className="debrief-lede">{item.excerpt}</p> : null}
           <DebriefPhotoStrip aliases={unique} photos={photos} />

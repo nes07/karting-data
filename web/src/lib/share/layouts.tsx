@@ -5,6 +5,7 @@
  */
 import type { CSSProperties, ReactNode } from "react";
 import { CONSTRUCTOR_COLORS } from "@/lib/constants";
+import type { DebriefShare } from "./debrief";
 import type {
   DriverProfileShare,
   RoundShare,
@@ -1104,6 +1105,125 @@ export function RoundImage({ round, format }: { round: RoundShare; format: Share
         canvasWidth={width - 112}
       />
       <Footer />
+    </Frame>
+  );
+}
+
+function debriefTitleSize(title: string, format: ShareFormat): number {
+  const n = title.length;
+  if (format === "story") {
+    if (n > 100) return 46;
+    if (n > 70) return 54;
+    return 64;
+  }
+  if (n > 100) return 40;
+  if (n > 70) return 46;
+  return 54;
+}
+
+export function DebriefImage({ data, format }: { data: DebriefShare; format: ShareFormat }) {
+  const { width, height } = SHARE_SIZES[format];
+  const inner = width - 112;
+  const gap = 16;
+  const maxH = format === "story" ? 640 : 360;
+  const count = data.people.length;
+  const fitted =
+    count > 0 ? Math.floor((inner - gap * (count - 1)) / count) : Math.round(maxH * 0.75);
+  const cardW = Math.min(Math.round(maxH * 0.75), fitted);
+  const photoH = Math.round((cardW * 4) / 3);
+  const nameSize = cardW < 220 ? 20 : 26;
+
+  return (
+    <Frame width={width} height={height}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div
+            style={{
+              fontFamily: HEAD,
+              fontSize: format === "story" ? 28 : 24,
+              fontWeight: 700,
+              color: C.red,
+              letterSpacing: 4,
+            }}
+          >
+            {data.kicker}
+          </div>
+          <div style={{ fontSize: 24, color: C.gray, marginTop: 10 }}>{data.dateLabel}</div>
+        </div>
+        <GkdMark size={format === "story" ? 52 : 44} />
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          fontFamily: HEAD,
+          fontSize: debriefTitleSize(data.title, format),
+          fontWeight: 700,
+          color: C.white,
+          letterSpacing: 1,
+          lineHeight: 1.15,
+          marginTop: format === "story" ? 56 : 36,
+        }}
+      >
+        {data.title}
+      </div>
+
+      {data.excerpt ? (
+        <div
+          style={{
+            display: "flex",
+            fontSize: format === "story" ? 30 : 26,
+            lineHeight: 1.45,
+            color: C.grayLight,
+            marginTop: 28,
+          }}
+        >
+          {data.excerpt}
+        </div>
+      ) : null}
+
+      <div style={{ display: "flex", flexDirection: "column", marginTop: "auto" }}>
+        {count > 0 ? (
+          <div style={{ display: "flex", justifyContent: "center", gap }}>
+            {data.people.map((person) => (
+              <div
+                key={person.alias}
+                style={{ display: "flex", flexDirection: "column", width: cardW }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={person.photo}
+                  alt={person.alias}
+                  width={cardW}
+                  height={photoH}
+                  style={{
+                    width: cardW,
+                    height: photoH,
+                    objectFit: "cover",
+                    objectPosition: "center 18%",
+                    borderRadius: 22,
+                  }}
+                />
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    fontFamily: HEAD,
+                    fontSize: nameSize,
+                    fontWeight: 700,
+                    color: C.white,
+                    letterSpacing: 1,
+                    marginTop: 14,
+                  }}
+                >
+                  {person.alias}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        <Footer />
+      </div>
     </Frame>
   );
 }
