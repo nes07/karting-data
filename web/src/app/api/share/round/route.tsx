@@ -19,7 +19,6 @@ export async function GET(request: Request) {
   const date = sp.get("date");
   const cat = parseCategory(sp);
   const format = parseFormat(sp);
-  const page = Math.max(1, Number(sp.get("page")) || 1);
 
   if (!date) {
     return NextResponse.json({ error: "Falta date" }, { status: 400 });
@@ -36,8 +35,7 @@ export async function GET(request: Request) {
     date,
     cat,
     absolutizeRecord(driverPhotos, url.origin),
-    format,
-    page
+    format
   );
 
   if (!round) {
@@ -52,9 +50,6 @@ export async function GET(request: Request) {
     width,
     height,
     fonts,
-    headers: {
-      ...PNG_CACHE_HEADERS,
-      "x-share-pages": String(round.pageCount),
-    },
+    headers: PNG_CACHE_HEADERS,
   });
 }

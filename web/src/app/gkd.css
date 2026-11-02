@@ -618,6 +618,16 @@ button { cursor: pointer; border: none; background: none; }
   letter-spacing: 0.05em;
 }
 
+.pos-delta {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.pos-delta.up { color: #3ddc84; }
+.pos-delta.down { color: #ff5a5a; }
+.pos-delta.flat { color: var(--gray-light); }
+.pos-delta.empty { color: var(--gray); }
+
 .pts-total {
   font-family: 'Microgramma', 'Exo 2', sans-serif;
   font-size: 1rem;

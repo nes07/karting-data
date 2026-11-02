@@ -3,6 +3,7 @@
  * Kept free of JSX/IO so they are unit-testable with vitest.
  */
 import { positionPoints } from "@/lib/scoring/engine";
+import { positionsGained } from "@/lib/positions-gained";
 import type {
   Category,
   ChampionshipData,
@@ -18,20 +19,17 @@ export const SHARE_SIZES: Record<ShareFormat, { width: number; height: number }>
   post: { width: 1080, height: 1350 },
 };
 
-/** Max table rows per format (podium renders separately on top). */
+/** Max table rows in a single image (podium renders separately on generic shares). */
 export const MAX_TABLE_ROWS: Record<ShareFormat, number> = {
   story: 16,
   post: 10,
 };
 
-/** Post pagination: page 1 keeps the podium, later pages are table-only. */
-export const POST_FIRST_PAGE_ROWS = 8;
-export const POST_NEXT_PAGE_ROWS = 12;
-
-/** Story pagination: single image up to 16 rows, otherwise paginate too. */
-export const STORY_SINGLE_PAGE_MAX = 16;
-export const STORY_FIRST_PAGE_ROWS = 14;
-export const STORY_NEXT_PAGE_ROWS = 18;
+/**
+ * Highlighted drivers/teams inside this rank stay in the top-of-table view.
+ * Outside it, the image shows podium + a context window around the target.
+ */
+export const HIGHLIGHT_TOP = 10;
 
 export interface ShareRow {
   rank: number;
@@ -59,9 +57,6 @@ export interface StandingsShare {
   highlight: ShareRow | null;
   /** True when rows were truncated to fit the format. */
   truncated: boolean;
-  /** 1-based page for multi-image posts. */
-  page: number;
-  pageCount: number;
 }
 
 export function fmtShareTime(t: number | null | undefined): string {
@@ -75,74 +70,47 @@ export function fmtSharePts(p: number | null | undefined): string {
 }
 
 /**
- * Pick at most `max` rows keeping the highlighted rank visible: when the
- * highlight falls outside the head of the table, it replaces the last slot.
+ * Single-image row picker.
+ *
+ * - No highlight / highlight inside HIGHLIGHT_TOP: head of the table (top 10
+ *   post, top 16 story).
+ * - Highlight outside the top 10: podium (1–3) + a symmetric window around
+ *   the target filling the remaining slots (edges fill toward the available side).
  */
-export function selectRows<T extends { rank: number }>(
+export function selectRowsWithContext<T extends { rank: number }>(
   rows: T[],
+  highlightRank: number | null,
   max: number,
-  highlightRank: number | null
+  topCutoff = HIGHLIGHT_TOP
 ): { rows: T[]; truncated: boolean } {
   if (rows.length <= max) return { rows, truncated: false };
-  const head = rows.slice(0, max);
-  if (highlightRank == null || head.some((r) => r.rank === highlightRank)) {
-    return { rows: head, truncated: true };
-  }
-  const target = rows.find((r) => r.rank === highlightRank);
-  if (!target) return { rows: head, truncated: true };
-  return { rows: [...rows.slice(0, max - 1), target], truncated: true };
-}
 
-export interface PagedRows<T> {
-  rows: T[];
-  page: number;
-  pageCount: number;
-  truncated: boolean;
-}
+  if (highlightRank == null || highlightRank <= topCutoff) {
+    return { rows: rows.slice(0, max), truncated: true };
+  }
 
-/**
- * Split rows into shareable pages. Highlights are always single-image; full
- * standings become a multi-image set when the table does not fit: page 1
- * shows the podium plus the first rows, later pages continue the table.
- * Stories fit more rows, so they only paginate past STORY_SINGLE_PAGE_MAX.
- */
-export function paginateRows<T extends { rank: number }>(
-  rows: T[],
-  format: ShareFormat,
-  highlightRank: number | null,
-  page: number
-): PagedRows<T> {
-  if (highlightRank != null) {
-    const picked = selectRows(rows, MAX_TABLE_ROWS[format], highlightRank);
-    return { rows: picked.rows, page: 1, pageCount: 1, truncated: picked.truncated };
+  const podium = rows.filter((r) => r.rank <= 3);
+  const restBudget = Math.max(1, max - podium.length);
+  const candidates = rows.filter((r) => r.rank > 3);
+  const center = candidates.findIndex((r) => r.rank === highlightRank);
+  if (center < 0) return { rows: rows.slice(0, max), truncated: true };
+
+  let lo = center;
+  let hi = center;
+  while (hi - lo + 1 < restBudget) {
+    const leftRoom = lo > 0;
+    const rightRoom = hi < candidates.length - 1;
+    if (!leftRoom && !rightRoom) break;
+    const leftDist = center - lo;
+    const rightDist = hi - center;
+    if (leftRoom && (!rightRoom || leftDist <= rightDist)) lo -= 1;
+    else hi += 1;
   }
-  if (format === "story" && rows.length <= STORY_SINGLE_PAGE_MAX) {
-    return { rows, page: 1, pageCount: 1, truncated: false };
-  }
-  const first = format === "story" ? STORY_FIRST_PAGE_ROWS : POST_FIRST_PAGE_ROWS;
-  const next = format === "story" ? STORY_NEXT_PAGE_ROWS : POST_NEXT_PAGE_ROWS;
-  const pageCount =
-    rows.length <= first ? 1 : 1 + Math.ceil((rows.length - first) / next);
-  const p = Math.min(Math.max(1, Math.floor(page)), pageCount);
-  if (pageCount === 1) {
-    return { rows, page: 1, pageCount: 1, truncated: false };
-  }
-  // Balance rows across pages (page 1 holds fewer because of the podium)
-  // so the last page never ends up almost empty. The second term guarantees
-  // page 1 never exceeds its cap.
-  const perLaterPage = Math.max(
-    Math.ceil(rows.length / pageCount),
-    Math.ceil((rows.length - first) / (pageCount - 1))
-  );
-  const firstCount = rows.length - perLaterPage * (pageCount - 1);
-  const slice =
-    p === 1
-      ? rows.slice(0, firstCount)
-      : rows.slice(
-          firstCount + (p - 2) * perLaterPage,
-          firstCount + (p - 1) * perLaterPage
-        );
-  return { rows: slice, page: p, pageCount, truncated: true };
+
+  return {
+    rows: [...podium, ...candidates.slice(lo, hi + 1)],
+    truncated: true,
+  };
 }
 
 export function buildDriversShare(
@@ -150,8 +118,7 @@ export function buildDriversShare(
   cat: Category,
   photos: Record<string, string>,
   format: ShareFormat,
-  highlightAlias?: string | null,
-  page = 1
+  highlightAlias?: string | null
 ): StandingsShare {
   const all: ShareRow[] = rows.map((r) => ({
     rank: r.rank,
@@ -163,17 +130,15 @@ export function buildDriversShare(
     highlighted: highlightAlias != null && r.alias === highlightAlias,
   }));
   const highlight = all.find((r) => r.highlighted) ?? null;
-  const paged = paginateRows(all, format, highlight?.rank ?? null, page);
+  const picked = selectRowsWithContext(all, highlight?.rank ?? null, MAX_TABLE_ROWS[format]);
   return {
     title: "STANDINGS",
     subtitle: `PILOTOS ${cat}`,
     valueLabel: "PTS",
     labelHeader: "PILOTO",
-    rows: paged.rows,
+    rows: picked.rows,
     highlight,
-    truncated: paged.truncated,
-    page: paged.page,
-    pageCount: paged.pageCount,
+    truncated: picked.truncated,
   };
 }
 
@@ -182,8 +147,7 @@ export function buildTeamsShare(
   cat: Category,
   teamPhotos: Record<string, string>,
   format: ShareFormat,
-  highlightTeam?: string | null,
-  page = 1
+  highlightTeam?: string | null
 ): StandingsShare {
   const all: ShareRow[] = rows.map((r) => ({
     rank: r.rank,
@@ -195,17 +159,15 @@ export function buildTeamsShare(
     highlighted: highlightTeam != null && r.escuderia === highlightTeam,
   }));
   const highlight = all.find((r) => r.highlighted) ?? null;
-  const paged = paginateRows(all, format, highlight?.rank ?? null, page);
+  const picked = selectRowsWithContext(all, highlight?.rank ?? null, MAX_TABLE_ROWS[format]);
   return {
     title: "STANDINGS",
     subtitle: `EQUIPOS ${cat}`,
     valueLabel: "PTS",
     labelHeader: "EQUIPO",
-    rows: paged.rows,
+    rows: picked.rows,
     highlight,
-    truncated: paged.truncated,
-    page: paged.page,
-    pageCount: paged.pageCount,
+    truncated: picked.truncated,
   };
 }
 
@@ -214,8 +176,7 @@ export function buildVrShare(
   photos: Record<string, string>,
   escuderias: Record<string, string>,
   format: ShareFormat,
-  highlightAlias?: string | null,
-  page = 1
+  highlightAlias?: string | null
 ): StandingsShare {
   const leaderTime = rows.find((r) => r.rank === 1)?.time ?? null;
   const all: ShareRow[] = rows.map((r) => ({
@@ -234,17 +195,15 @@ export function buildVrShare(
           : null,
   }));
   const highlight = all.find((r) => r.highlighted) ?? null;
-  const paged = paginateRows(all, format, highlight?.rank ?? null, page);
+  const picked = selectRowsWithContext(all, highlight?.rank ?? null, MAX_TABLE_ROWS[format]);
   return {
     title: "VUELTA RÁPIDA",
     subtitle: "RANKING GKD",
     valueLabel: "TIEMPO",
     labelHeader: "PILOTO",
-    rows: paged.rows,
+    rows: picked.rows,
     highlight,
-    truncated: paged.truncated,
-    page: paged.page,
-    pageCount: paged.pageCount,
+    truncated: picked.truncated,
   };
 }
 
@@ -262,6 +221,8 @@ export interface DriverProfileShare {
   /** Rank in the Vuelta Rápida standings, or null when no laps recorded. */
   vrRank: number | null;
   vrLabel: string | null;
+  /** Positions gained in the latest official race the driver contested. */
+  positionsGained: number | null;
 }
 
 function ordinalEs(n: number): string {
@@ -270,12 +231,29 @@ function ordinalEs(n: number): string {
   return `${n}º`;
 }
 
+export function lastOfficialPositionsGained(
+  data: ChampionshipData,
+  driverId: string
+): number | null {
+  const official = [...data.races]
+    .filter((r) => r.isOfficial)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  for (const race of official) {
+    const res = data.results.find(
+      (r) => r.raceId === race.id && r.driverId === driverId
+    );
+    if (res) return positionsGained(res.gridPosition, res.position);
+  }
+  return null;
+}
+
 export function buildDriverProfile(
   driversF1: DriverStandingRow[],
   driversF2: DriverStandingRow[],
   vueltaRapida: VueltaRapidaRow[],
   photos: Record<string, string>,
-  alias: string
+  alias: string,
+  data?: ChampionshipData
 ): DriverProfileShare | null {
   const inF1 = driversF1.find((d) => d.alias === alias);
   const inF2 = driversF2.find((d) => d.alias === alias);
@@ -295,6 +273,7 @@ export function buildDriverProfile(
     bestTime: fmtShareTime(vr?.time ?? row.bestTime),
     vrRank: vr?.rank ?? null,
     vrLabel: vr ? `${ordinalEs(vr.rank)} mejor tiempo GKD` : null,
+    positionsGained: data ? lastOfficialPositionsGained(data, row.driverId) : null,
   };
 }
 
@@ -307,6 +286,8 @@ export interface RoundShareRow {
   /** Gap vs the round's best lap, e.g. "+0.360"; "+0.000" for the best. */
   dif: string;
   pts: number;
+  /** Positions gained vs qualifying grid. */
+  gained: number | null;
 }
 
 export interface RoundShare {
@@ -316,8 +297,6 @@ export interface RoundShare {
   roundNumber: number;
   rows: RoundShareRow[];
   truncated: boolean;
-  page: number;
-  pageCount: number;
 }
 
 export function buildRoundShare(
@@ -325,8 +304,7 @@ export function buildRoundShare(
   date: string,
   cat: Category,
   photos: Record<string, string>,
-  format: ShareFormat,
-  page = 1
+  format: ShareFormat
 ): RoundShare | null {
   const race = data.races.find((r) => r.date === date);
   if (!race) return null;
@@ -375,23 +353,21 @@ export function buildRoundShare(
           : "—",
       // DNF: started but didn't finish, no position points.
       pts: r.isDnf ? 0 : positionPoints(r.position, cat, data.config),
+      gained: positionsGained(r.gridPosition, r.position),
     };
   });
 
-  const paged = paginateRows(
+  const picked = selectRowsWithContext(
     all.map((r) => ({ ...r, rank: r.pos })),
-    format,
     null,
-    page
+    MAX_TABLE_ROWS[format]
   );
   return {
     monthLabel: race.monthLabel,
     date: race.date,
     category: cat,
     roundNumber: roundNumber > 0 ? roundNumber : 1,
-    rows: paged.rows,
-    truncated: paged.truncated,
-    page: paged.page,
-    pageCount: paged.pageCount,
+    rows: picked.rows,
+    truncated: picked.truncated,
   };
 }

@@ -12,9 +12,10 @@ import {
   buildVrShare,
   fmtSharePts,
   fmtShareTime,
-  paginateRows,
-  POST_FIRST_PAGE_ROWS,
-  selectRows,
+  HIGHLIGHT_TOP,
+  lastOfficialPositionsGained,
+  MAX_TABLE_ROWS,
+  selectRowsWithContext,
 } from "./data";
 
 function driverRow(overrides: Partial<DriverStandingRow>): DriverStandingRow {
@@ -63,82 +64,46 @@ describe("formatters", () => {
   });
 });
 
-describe("selectRows", () => {
-  const rows = Array.from({ length: 20 }, (_, i) => ({ rank: i + 1 }));
+describe("selectRowsWithContext", () => {
+  const rows = Array.from({ length: 25 }, (_, i) => ({ rank: i + 1 }));
 
   it("returns everything when it fits", () => {
-    const r = selectRows(rows.slice(0, 5), 10, null);
+    const r = selectRowsWithContext(rows.slice(0, 5), null, 10);
     expect(r.rows).toHaveLength(5);
     expect(r.truncated).toBe(false);
   });
 
-  it("truncates to the head without highlight", () => {
-    const r = selectRows(rows, 10, null);
+  it("takes the top N without a highlight (post = 10, story = 16)", () => {
+    expect(selectRowsWithContext(rows, null, MAX_TABLE_ROWS.post).rows.map((x) => x.rank)).toEqual(
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    );
+    expect(selectRowsWithContext(rows, null, MAX_TABLE_ROWS.story).rows).toHaveLength(16);
+  });
+
+  it("keeps a highlight inside the top 10 in the head of the table", () => {
+    const r = selectRowsWithContext(rows, 8, 10);
     expect(r.rows.map((x) => x.rank)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     expect(r.truncated).toBe(true);
   });
 
-  it("keeps a highlight outside the head visible in the last slot", () => {
-    const r = selectRows(rows, 10, 15);
+  it("shows podium + symmetric window around a driver outside the top 10", () => {
+    const r = selectRowsWithContext(rows, 15, 10);
     expect(r.rows).toHaveLength(10);
-    expect(r.rows[9].rank).toBe(15);
-    expect(r.truncated).toBe(true);
-  });
-});
-
-describe("paginateRows", () => {
-  const rows = Array.from({ length: 16 }, (_, i) => ({ rank: i + 1 }));
-
-  it("keeps stories up to 16 rows in a single page", () => {
-    const r = paginateRows(rows, "story", null, 1);
-    expect(r.rows).toHaveLength(16);
-    expect(r.pageCount).toBe(1);
+    expect(r.rows.slice(0, 3).map((x) => x.rank)).toEqual([1, 2, 3]);
+    expect(r.rows.slice(3).map((x) => x.rank)).toEqual([12, 13, 14, 15, 16, 17, 18]);
+    expect(HIGHLIGHT_TOP).toBe(10);
   });
 
-  it("paginates stories with balanced pages when the table does not fit", () => {
-    const many = Array.from({ length: 20 }, (_, i) => ({ rank: i + 1 }));
-    const p1 = paginateRows(many, "story", null, 1);
-    expect(p1.rows).toHaveLength(10);
-    expect(p1.rows[0].rank).toBe(1);
-    expect(p1.pageCount).toBe(2);
-    const p2 = paginateRows(many, "story", null, 2);
-    expect(p2.rows).toHaveLength(10);
-    expect(p2.rows[0].rank).toBe(11);
-    expect(p2.rows.at(-1)?.rank).toBe(20);
+  it("fills toward the available side at the bottom of the table", () => {
+    const r = selectRowsWithContext(rows, 25, 10);
+    expect(r.rows.slice(0, 3).map((x) => x.rank)).toEqual([1, 2, 3]);
+    expect(r.rows.slice(3).map((x) => x.rank)).toEqual([19, 20, 21, 22, 23, 24, 25]);
   });
 
-  it("covers every row exactly once across pages", () => {
-    for (const format of ["story", "post"] as const) {
-      for (const n of [15, 20, 21, 33, 46, 47]) {
-        const many = Array.from({ length: n }, (_, i) => ({ rank: i + 1 }));
-        const pc = paginateRows(many, format, null, 1).pageCount;
-        const seen: number[] = [];
-        for (let p = 1; p <= pc; p++) {
-          seen.push(...paginateRows(many, format, null, p).rows.map((r) => r.rank));
-        }
-        expect(seen).toEqual(many.map((r) => r.rank));
-      }
-    }
-  });
-
-  it("splits posts into podium page + continuation pages", () => {
-    const p1 = paginateRows(rows, "post", null, 1);
-    expect(p1.rows.map((x) => x.rank)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
-    expect(p1.pageCount).toBe(2);
-    const p2 = paginateRows(rows, "post", null, 2);
-    expect(p2.rows[0].rank).toBe(POST_FIRST_PAGE_ROWS + 1);
-    expect(p2.rows.at(-1)?.rank).toBe(16);
-  });
-
-  it("clamps out-of-range pages", () => {
-    const r = paginateRows(rows, "post", null, 99);
-    expect(r.page).toBe(2);
-  });
-
-  it("keeps highlights single-page even in post format", () => {
-    const r = paginateRows(rows, "post", 15, 1);
-    expect(r.pageCount).toBe(1);
-    expect(r.rows.some((x) => x.rank === 15)).toBe(true);
+  it("fills toward the available side just below the podium", () => {
+    const r = selectRowsWithContext(rows, 11, 10);
+    expect(r.rows.slice(0, 3).map((x) => x.rank)).toEqual([1, 2, 3]);
+    expect(r.rows.slice(3).map((x) => x.rank)).toEqual([8, 9, 10, 11, 12, 13, 14]);
   });
 });
 
@@ -223,6 +188,7 @@ describe("buildDriverProfile", () => {
     expect(p?.bestTime).toBe("39.200");
     expect(p?.vrRank).toBeNull();
     expect(p?.vrLabel).toBeNull();
+    expect(p?.positionsGained).toBeNull();
   });
 
   it("returns null for unknown alias", () => {
@@ -251,8 +217,8 @@ describe("buildRoundShare", () => {
       { id: "r2", date: "2026-07-05", monthLabel: "Julio", isOfficial: true, startTime: "12:00:00" },
     ],
     results: [
-      { raceId: "r2", driverId: "d1", category: "F1", position: 1, bestTime: 38.1, isReserve: false },
-      { raceId: "r2", driverId: "d2", category: "F1", position: 2, bestTime: 38.46, isReserve: true },
+      { raceId: "r2", driverId: "d1", category: "F1", position: 1, bestTime: 38.1, isReserve: false, gridPosition: 3 },
+      { raceId: "r2", driverId: "d2", category: "F1", position: 2, bestTime: 38.46, isReserve: true, gridPosition: 1 },
     ],
     dotd: [],
     penalties: [],
@@ -270,17 +236,64 @@ describe("buildRoundShare", () => {
       time: "38.100",
       dif: "+0.000",
       pts: 16,
+      gained: 2,
     });
     expect(round!.rows[1]).toMatchObject({
       alias: "TIT",
       escuderia: "RD",
       dif: "+0.360",
       pts: 15,
+      gained: -1,
     });
+  });
+
+  it("truncates posts to the top 10", () => {
+    const many: ChampionshipData = {
+      ...data,
+      drivers: Array.from({ length: 16 }, (_, i) => ({
+        id: `d${i + 1}`,
+        alias: `P${i + 1}`,
+        active: true,
+      })),
+      results: Array.from({ length: 16 }, (_, i) => ({
+        raceId: "r2",
+        driverId: `d${i + 1}`,
+        category: "F1" as const,
+        position: i + 1,
+        bestTime: 38 + i * 0.1,
+        isReserve: false,
+      })),
+    };
+    const round = buildRoundShare(many, "2026-07-05", "F1", {}, "post");
+    expect(round!.rows).toHaveLength(10);
+    expect(round!.truncated).toBe(true);
+    expect(round!.rows.at(-1)?.pos).toBe(10);
   });
 
   it("returns null when the date has no results", () => {
     expect(buildRoundShare(data, "2026-06-07", "F1", {}, "story")).toBeNull();
     expect(buildRoundShare(data, "2030-01-01", "F1", {}, "story")).toBeNull();
+  });
+});
+
+describe("lastOfficialPositionsGained", () => {
+  const data: ChampionshipData = {
+    drivers: [{ id: "d1", alias: "NES", active: true }],
+    teams: [],
+    races: [
+      { id: "r1", date: "2026-06-07", monthLabel: "Junio", isOfficial: true, startTime: "12:00:00" },
+      { id: "r2", date: "2026-07-05", monthLabel: "Julio", isOfficial: true, startTime: "12:00:00" },
+    ],
+    results: [
+      { raceId: "r1", driverId: "d1", category: "F1", position: 4, isReserve: false, gridPosition: 8 },
+      { raceId: "r2", driverId: "d1", category: "F1", position: 2, isReserve: false, gridPosition: 5 },
+    ],
+    dotd: [],
+    penalties: [],
+    config: DEFAULT_SCORING_CONFIG,
+  };
+
+  it("uses the latest official race the driver contested", () => {
+    expect(lastOfficialPositionsGained(data, "d1")).toBe(3);
   });
 });

@@ -47,29 +47,12 @@ export function ShareButton({
     setStatus("loading");
     try {
       const sep = endpoint.includes("?") ? "&" : "?";
-      const base = `${endpoint}${sep}format=${format}`;
-      const first = await fetch(base);
-      if (!first.ok) throw new Error(`Error ${first.status}`);
-      const pageCount = Math.max(1, Number(first.headers.get("x-share-pages")) || 1);
-      const blobs = [await first.blob()];
-
-      // Multi-page posts (carousel): fetch the remaining pages too.
-      for (let p = 2; p <= pageCount; p++) {
-        const res = await fetch(`${base}&page=${p}`);
-        if (!res.ok) throw new Error(`Error ${res.status}`);
-        blobs.push(await res.blob());
-      }
-
-      const files = blobs.map(
-        (blob, i) =>
-          new File(
-            [blob],
-            pageCount > 1
-              ? `${filename}-${format}-${i + 1}.png`
-              : `${filename}-${format}.png`,
-            { type: "image/png" }
-          )
-      );
+      const res = await fetch(`${endpoint}${sep}format=${format}`);
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const blob = await res.blob();
+      const files = [
+        new File([blob], `${filename}-${format}.png`, { type: "image/png" }),
+      ];
 
       if (
         typeof navigator.canShare === "function" &&

@@ -26,7 +26,6 @@ export async function GET(request: Request) {
   const cat = parseCategory(sp);
   const format = parseFormat(sp);
   const highlight = sp.get("highlight");
-  const page = Math.max(1, Number(sp.get("page")) || 1);
 
   const [site, fonts] = await Promise.all([loadSiteData(), loadShareFonts()]);
 
@@ -50,8 +49,7 @@ export async function GET(request: Request) {
       cat,
       absolutizeRecord(teamPhotos, url.origin),
       format,
-      highlight,
-      page
+      highlight
     );
   } else if (type === "vr") {
     // Escudería of each driver's official seat (F1 first, then F2).
@@ -71,8 +69,7 @@ export async function GET(request: Request) {
       absolutizeRecord(driverPhotos, url.origin),
       escByAlias,
       format,
-      highlight,
-      page
+      highlight
     );
   } else {
     data = buildDriversShare(
@@ -80,8 +77,7 @@ export async function GET(request: Request) {
       cat,
       absolutizeRecord(driverPhotos, url.origin),
       format,
-      highlight,
-      page
+      highlight
     );
   }
 
@@ -94,9 +90,6 @@ export async function GET(request: Request) {
     width,
     height,
     fonts,
-    headers: {
-      ...PNG_CACHE_HEADERS,
-      "x-share-pages": String(data.pageCount),
-    },
+    headers: PNG_CACHE_HEADERS,
   });
 }

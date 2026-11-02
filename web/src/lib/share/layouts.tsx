@@ -520,6 +520,7 @@ function Table({
   labelHeader,
   compact,
   showVar = true,
+  varHeader = "VAR",
   extraHeader,
 }: {
   rows: ShareRow[];
@@ -528,6 +529,7 @@ function Table({
   compact: boolean;
   /** Hide the VAR column (e.g. round results have no rank variation). */
   showVar?: boolean;
+  varHeader?: string;
   /** Header of the optional trailing column fed by row.extra. */
   extraHeader?: string;
 }) {
@@ -570,7 +572,7 @@ function Table({
       >
         <div style={{ ...headStyle, width: 90, display: "flex" }}>POS</div>
         {showVar ? (
-          <div style={{ ...headStyle, width: varWidth, display: "flex" }}>VAR</div>
+          <div style={{ ...headStyle, width: varWidth, display: "flex" }}>{varHeader}</div>
         ) : null}
         <div style={{ ...headStyle, flexGrow: 1, display: "flex" }}>{labelHeader}</div>
         <div style={{ ...headStyle, width: escWidth, display: "flex" }}>ESCUDERÍA</div>
@@ -596,9 +598,50 @@ function Table({
           justifyContent: "space-around",
         }}
       >
-      {rows.map((r) => {
+      {rows.flatMap((r, i) => {
+        const prev = rows[i - 1];
+        const jumped = prev != null && r.rank > prev.rank + 1;
         const b = badgeColors(r.rank);
-        return (
+        const nodes: ReactNode[] = [];
+        if (prev != null && jumped) {
+          const skipped = r.rank - prev.rank - 1;
+          nodes.push(
+            <div
+              key={`gap-${prev.rank}-${r.rank}`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                padding: compact ? "6px 24px" : "10px 28px",
+                margin: compact ? "2px 12px" : "4px 12px",
+              }}
+            >
+              {[0, 1, 2].map((d) => (
+                <div
+                  key={d}
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 99,
+                    backgroundColor: d === 1 ? C.gold : "rgba(201,168,76,0.45)",
+                  }}
+                />
+              ))}
+              <div
+                style={{
+                  fontSize: compact ? 16 : 18,
+                  color: C.gray,
+                  letterSpacing: 3,
+                  marginLeft: 8,
+                }}
+              >
+                {skipped === 1 ? "1 POSICIÓN" : `${skipped} POSICIONES`}
+              </div>
+            </div>
+          );
+        }
+        nodes.push(
           <div
             key={`${r.rank}-${r.label}`}
             style={{
@@ -696,6 +739,7 @@ function Table({
             ) : null}
           </div>
         );
+        return nodes;
       })}
       </div>
     </div>
@@ -757,9 +801,8 @@ export function StandingsImage({
   const { width, height } = SHARE_SIZES[format];
   const tableRows = data.rows;
   const hasTop3 = [1, 2, 3].every((n) => tableRows.some((r) => r.rank === n));
-  const showPodium = !data.highlight && data.page === 1 && hasTop3;
+  const showPodium = !data.highlight && hasTop3;
   const compact = format === "post" || tableRows.length > 10;
-  const pageInfo = data.pageCount > 1 ? `${data.page} / ${data.pageCount}` : undefined;
   return (
     <Frame width={width} height={height}>
       <Header title={data.title} subtitle={data.subtitle} />
@@ -778,7 +821,7 @@ export function StandingsImage({
         labelHeader={data.labelHeader}
         compact={compact}
       />
-      <Footer pageInfo={pageInfo} />
+      <Footer />
     </Frame>
   );
 }
@@ -908,6 +951,45 @@ export function DriverProfileImage({
             ) : null}
           </div>
         </div>
+        {profile.positionsGained != null ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              marginTop: story ? 28 : 20,
+              gap: 10,
+            }}
+          >
+            <div
+              style={{
+                fontFamily: HEAD,
+                fontSize: story ? 42 : 36,
+                fontWeight: 700,
+                color:
+                  profile.positionsGained > 0
+                    ? "#3ddc84"
+                    : profile.positionsGained < 0
+                      ? "#ff5a5a"
+                      : C.grayLight,
+              }}
+            >
+              {profile.positionsGained === 0
+                ? "="
+                : profile.positionsGained > 0
+                  ? `+${profile.positionsGained}`
+                  : String(profile.positionsGained)}
+            </div>
+            <div
+              style={{
+                fontSize: 20,
+                color: C.gray,
+                letterSpacing: 3,
+              }}
+            >
+              POS ÚLTIMA CARRERA
+            </div>
+          </div>
+        ) : null}
         <div
           style={{
             display: "flex",
@@ -936,7 +1018,7 @@ export function RoundImage({ round, format }: { round: RoundShare; format: Share
     escuderia: r.escuderia,
     value: r.time,
     photo: r.photo,
-    variation: null,
+    variation: r.gained,
     highlighted: false,
     // Best lap of the round shows "—" (green), same as the VR leader.
     gap: r.dif === "+0.000" ? "—" : r.dif,
@@ -950,12 +1032,11 @@ export function RoundImage({ round, format }: { round: RoundShare; format: Share
       escuderia: r.escuderia,
       value: String(r.pts),
       photo: r.photo,
-      variation: null,
+      variation: r.gained,
       highlighted: false,
     }));
-  const showPodium = round.page === 1 && top3.length >= 3;
+  const showPodium = top3.length >= 3;
   const compact = format === "post" || round.rows.length > 10;
-  const pageInfo = round.pageCount > 1 ? `${round.page} / ${round.pageCount}` : undefined;
   return (
     <Frame width={width} height={height}>
       <Header
@@ -971,10 +1052,11 @@ export function RoundImage({ round, format }: { round: RoundShare; format: Share
         valueLabel="TIEMPO"
         labelHeader="PILOTO"
         compact={compact}
-        showVar={false}
+        showVar
+        varHeader="+/-"
         extraHeader="PTS"
       />
-      <Footer pageInfo={pageInfo} />
+      <Footer />
     </Frame>
   );
 }

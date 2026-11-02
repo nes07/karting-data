@@ -135,6 +135,7 @@ export async function loadSiteData(): Promise<SiteData> {
     replacedTeamId: r.replaced_team_id,
     isDnf: r.is_dnf ?? false,
     teamId: r.team_id ?? null,
+    gridPosition: r.grid_position ?? null,
   }));
   const dotdAwards: DotdAward[] = (dt.data ?? []).map((d) => ({
     raceId: d.race_id,

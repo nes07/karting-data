@@ -39,6 +39,8 @@ interface ResultDraft {
   isDnf: boolean;
   /** Team whose seat the driver held at this race (snapshot, null for RD). */
   teamId: string | null;
+  /** Starting-grid position from qualifying. */
+  gridPosition: number | null;
 }
 interface DotdDraft {
   driverId: string;
@@ -245,6 +247,7 @@ export default function RacesAdminPage() {
             replacedTeamId: r.replaced_team_id,
             isDnf: r.is_dnf ?? false,
             teamId: r.team_id ?? null,
+            gridPosition: r.grid_position ?? null,
           }))
           .sort((a, b) => a.position - b.position)
       );
@@ -283,6 +286,7 @@ export default function RacesAdminPage() {
           replacedTeamId: null,
           isDnf: false,
           teamId: null,
+          gridPosition: null,
         },
       ];
     });
@@ -321,6 +325,7 @@ export default function RacesAdminPage() {
             team_id: r.isReserve
               ? null
               : r.teamId ?? seatTeamId(r.driverId, r.category),
+            grid_position: r.gridPosition ?? null,
           }))
         );
         if (ins.error) throw new Error(ins.error.message);
@@ -599,6 +604,9 @@ export default function RacesAdminPage() {
                 <thead>
                   <tr>
                     <th>Pos</th>
+                    <th title="Posición de largada (qualifying). Editable si el encargado se equivocó.">
+                      Grilla
+                    </th>
                     <th>Piloto</th>
                     <th>Mejor vuelta</th>
                     <th title="No terminó la carrera: suma participación pero no puntos por posición">
@@ -621,6 +629,21 @@ export default function RacesAdminPage() {
                             style={{ width: 64 }}
                             value={r.position}
                             onChange={(e) => patchResult(i, { position: Number(e.target.value) })}
+                          />
+                        </td>
+                        <td style={{ width: 70 }}>
+                          <input
+                            type="number"
+                            min={1}
+                            className="admin-input"
+                            style={{ width: 64 }}
+                            placeholder="—"
+                            value={r.gridPosition ?? ""}
+                            onChange={(e) =>
+                              patchResult(i, {
+                                gridPosition: e.target.value ? Number(e.target.value) : null,
+                              })
+                            }
                           />
                         </td>
                         <td>

@@ -4,6 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { dedupeLapTimes } from "@/lib/lap-times";
 import { CHAMPIONSHIP_MONTHS } from "@/lib/championship-months";
+import {
+  applyQualiToImported,
+  guessQualiSessionId,
+  type QualiResult,
+} from "@/lib/karteando-quali";
+import {
+  formatPositionsGained,
+  positionsGained,
+} from "@/lib/positions-gained";
 
 interface DriverOpt {
   id: string;
@@ -30,6 +39,8 @@ interface ImportedTime {
   position: number | null;
   driverId: string | null;
   category: "F1" | "F2";
+  /** Starting grid position from the qualifying session (editable later). */
+  gridPosition: number | null;
 }
 interface ResultDraft {
   driverId: string;
@@ -42,6 +53,8 @@ interface ResultDraft {
   isDnf: boolean;
   /** Team whose seat the driver holds (snapshot saved with the result). */
   teamId: string | null;
+  /** Starting grid position from quali — drives Positions Gained. */
+  gridPosition: number | null;
 }
 
 
@@ -59,6 +72,11 @@ export default function RaceDayPage() {
   const [sessions, setSessions] = useState<KSession[]>([]);
   const [imported, setImported] = useState<ImportedTime[]>([]);
   const [importCat, setImportCat] = useState<"F1" | "F2">("F1");
+  /** Qualifying session used as the starting grid, per category. */
+  const [qualiSession, setQualiSession] = useState<Record<"F1" | "F2", string>>({
+    F1: "",
+    F2: "",
+  });
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
@@ -116,30 +134,109 @@ export default function RaceDayPage() {
     }
   }
 
+  async function fetchSessionResults(sessionId: string) {
+    const r = await fetch(`/api/karteando?sessionId=${sessionId}`);
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error);
+    return data.results as Array<{
+      webName: string;
+      bestTime: number | null;
+      position: number | null;
+      driverId: string | null;
+    }>;
+  }
+
+  function mergeRaceResults(
+    prev: ImportedTime[],
+    results: Array<{
+      webName: string;
+      bestTime: number | null;
+      position: number | null;
+      driverId: string | null;
+    }>,
+    cat: "F1" | "F2"
+  ): ImportedTime[] {
+    const merged = new Map(prev.map((x) => [x.webName, x]));
+    for (const raw of results) {
+      const row: ImportedTime = {
+        ...raw,
+        category: cat,
+        gridPosition: merged.get(raw.webName)?.gridPosition ?? null,
+      };
+      const cur = merged.get(row.webName);
+      if (!cur || (row.bestTime != null && (cur.bestTime == null || row.bestTime < cur.bestTime))) {
+        merged.set(row.webName, {
+          ...row,
+          driverId: cur?.driverId ?? row.driverId,
+          gridPosition: cur?.gridPosition ?? row.gridPosition,
+        });
+      }
+    }
+    return [...merged.values()];
+  }
+
+  async function applyQuali(sessionId: string, cat: "F1" | "F2") {
+    const results = await fetchSessionResults(sessionId);
+    const quali: QualiResult[] = results.map((r) => ({
+      webName: r.webName,
+      position: r.position,
+      driverId: r.driverId,
+    }));
+    setImported((prev) => applyQualiToImported(prev, quali, cat));
+  }
+
   async function importSession(sessionId: string) {
     setLoading(true);
     setMsg(null);
     try {
-      const r = await fetch(`/api/karteando?sessionId=${sessionId}`);
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error);
-      // Merge: keep the best (lowest) time per webName. Each row is tagged with
-      // the category of the heat it was imported from (importCat).
-      setImported((prev) => {
-        const merged = new Map(prev.map((x) => [x.webName, x]));
-        for (const raw of data.results as Omit<ImportedTime, "category">[]) {
-          const row: ImportedTime = { ...raw, category: importCat };
-          const cur = merged.get(row.webName);
-          if (!cur || (row.bestTime != null && (cur.bestTime == null || row.bestTime < cur.bestTime))) {
-            merged.set(row.webName, {
-              ...row,
-              driverId: cur?.driverId ?? row.driverId,
-            });
-          }
+      const raceResults = await fetchSessionResults(sessionId);
+      const guessed = guessQualiSessionId(sessions, sessionId);
+      const qualiId = qualiSession[importCat] || guessed || "";
+      let qualiResults: QualiResult[] | null = null;
+      if (qualiId) {
+        if (!qualiSession[importCat]) {
+          setQualiSession((prev) => ({ ...prev, [importCat]: qualiId }));
         }
-        return [...merged.values()];
+        const q = await fetchSessionResults(qualiId);
+        qualiResults = q.map((r) => ({
+          webName: r.webName,
+          position: r.position,
+          driverId: r.driverId,
+        }));
+      }
+      setImported((prev) => {
+        const merged = mergeRaceResults(prev, raceResults, importCat);
+        return qualiResults
+          ? applyQualiToImported(merged, qualiResults, importCat)
+          : merged;
       });
-      setMsg({ kind: "ok", text: "Sesión importada. Puedes importar más o continuar." });
+      const qualiNote = qualiId
+        ? ` Quali: sesión ${qualiId} (grilla editable en el siguiente paso).`
+        : "";
+      setMsg({
+        kind: "ok",
+        text: `Sesión importada como ${importCat}.${qualiNote} Puedes importar más o continuar.`,
+      });
+    } catch (e) {
+      setMsg({ kind: "err", text: String(e instanceof Error ? e.message : e) });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onQualiSessionChange(cat: "F1" | "F2", sessionId: string) {
+    setQualiSession((prev) => ({ ...prev, [cat]: sessionId }));
+    if (!sessionId) {
+      setImported((prev) =>
+        prev.map((r) => (r.category === cat ? { ...r, gridPosition: null } : r))
+      );
+      return;
+    }
+    setLoading(true);
+    setMsg(null);
+    try {
+      await applyQuali(sessionId, cat);
+      setMsg({ kind: "ok", text: `Grilla ${cat} actualizada desde la sesión ${sessionId}.` });
     } catch (e) {
       setMsg({ kind: "err", text: String(e instanceof Error ? e.message : e) });
     } finally {
@@ -175,6 +272,7 @@ export default function RaceDayPage() {
           replacedTeamId: null,
           isDnf: false,
           teamId: seatTeamId(t.driverId!, cat),
+          gridPosition: t.gridPosition,
         });
       });
     }
@@ -209,6 +307,7 @@ export default function RaceDayPage() {
         replacedTeamId: null,
         isDnf: false,
         teamId: null,
+        gridPosition: null,
       },
     ]);
   }
@@ -369,6 +468,33 @@ export default function RaceDayPage() {
             </div>
           )}
           {sessions.length > 0 && (
+            <div className="admin-field" style={{ marginTop: 16 }}>
+              <label>
+                Qualifying (orden de grilla) — por defecto la sesión anterior a la de carrera
+              </label>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                {(["F1", "F2"] as const).map((cat) => (
+                  <div key={cat} style={{ flex: "1 1 240px" }}>
+                    <label style={{ fontSize: 12, color: "var(--gray)" }}>{cat}</label>
+                    <select
+                      className="admin-select"
+                      value={qualiSession[cat]}
+                      disabled={loading}
+                      onChange={(e) => onQualiSessionChange(cat, e.target.value)}
+                    >
+                      <option value="">— Sin quali —</option>
+                      {sessions.map((s) => (
+                        <option key={s.sessionId} value={s.sessionId}>
+                          {s.sessionName} · {s.sessionType} · #{s.sessionId}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {sessions.length > 0 && (
             <table className="admin-table" style={{ marginTop: 16 }}>
               <thead>
                 <tr><th>Sesión</th><th>Tipo</th><th>Hora</th><th>Pilotos</th><th></th></tr>
@@ -400,13 +526,14 @@ export default function RaceDayPage() {
               <h2 style={{ marginTop: 24 }}>Tiempos importados — confirma nombres y categoría</h2>
               <table className="admin-table">
                 <thead>
-                  <tr><th>Nombre web</th><th>Mejor vuelta</th><th>Piloto GKD</th><th>Categoría</th></tr>
+                  <tr><th>Nombre web</th><th>Mejor vuelta</th><th>Grilla</th><th>Piloto GKD</th><th>Categoría</th></tr>
                 </thead>
                 <tbody>
                   {imported.map((t, i) => (
                     <tr key={t.webName}>
                       <td>{t.webName}</td>
                       <td>{t.bestTime?.toFixed(3) ?? "—"}</td>
+                      <td>{t.gridPosition ?? "—"}</td>
                       <td>
                         <select
                           className="admin-select"
@@ -483,6 +610,10 @@ export default function RaceDayPage() {
                 <thead>
                   <tr>
                     <th>Pos</th>
+                    <th title="Posición de largada (qualifying). Editable si el encargado se equivocó.">
+                      Grilla
+                    </th>
+                    <th>POS +/-</th>
                     <th>Piloto</th>
                     <th title="No terminó la carrera: suma participación pero no puntos por posición">
                       DNF
@@ -505,6 +636,24 @@ export default function RaceDayPage() {
                             value={r.position}
                             onChange={(e) => patchResult(i, { position: Number(e.target.value) })}
                           />
+                        </td>
+                        <td style={{ width: 70 }}>
+                          <input
+                            type="number"
+                            min={1}
+                            className="admin-input"
+                            style={{ width: 64 }}
+                            placeholder="—"
+                            value={r.gridPosition ?? ""}
+                            onChange={(e) =>
+                              patchResult(i, {
+                                gridPosition: e.target.value ? Number(e.target.value) : null,
+                              })
+                            }
+                          />
+                        </td>
+                        <td style={{ width: 64, fontWeight: 700 }}>
+                          {formatPositionsGained(positionsGained(r.gridPosition, r.position))}
                         </td>
                         <td>
                           <select

@@ -7,6 +7,11 @@ import { positionPoints } from "@/lib/scoring/engine";
 import { ShareButton } from "./ShareButton";
 import { formatShortDate, rankBadgeClass, rowClass } from "./format";
 import { PodiumResults } from "./standings-widgets";
+import {
+  formatPositionsGained,
+  positionsGained,
+  positionsGainedClass,
+} from "@/lib/positions-gained";
 
 interface ResultRow {
   pos: number;
@@ -15,6 +20,7 @@ interface ResultRow {
   isReserve: boolean;
   isDnf: boolean;
   pts: number;
+  gained: number | null;
 }
 
 interface DateBlock {
@@ -60,6 +66,7 @@ function buildBlocks(data: ChampionshipData): DateBlock[] {
           isDnf: r.isDnf ?? false,
           // DNF: started but didn't finish, no position points.
           pts: r.isDnf ? 0 : positionPoints(r.position, cat, data.config),
+          gained: positionsGained(r.gridPosition, r.position),
         }));
     blocks.push({
       raceId: race.id,
@@ -84,6 +91,7 @@ function ResultsTable({ rows }: { rows: ResultRow[] }) {
             <th>Pos</th>
             <th>Piloto</th>
             <th>Escudería</th>
+            <th title="Posiciones ganadas vs la grilla de qualifying">POS +/-</th>
             <th>Pts</th>
           </tr>
         </thead>
@@ -114,6 +122,11 @@ function ResultsTable({ rows }: { rows: ResultRow[] }) {
                     style={{ background: c.bg, color: c.fg }}
                   >
                     {r.escuderia}
+                  </span>
+                </td>
+                <td>
+                  <span className={`pos-delta ${positionsGainedClass(r.gained)}`}>
+                    {formatPositionsGained(r.gained)}
                   </span>
                 </td>
                 <td className="pts-total">{r.pts}</td>

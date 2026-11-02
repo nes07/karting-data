@@ -29,7 +29,8 @@ export async function GET(request: Request) {
     site.driversF2,
     site.vueltaRapida,
     absolutizeRecord(driverPhotos, url.origin),
-    alias
+    alias,
+    site.data
   );
 
   if (!profile) {

@@ -55,6 +55,11 @@ export interface RaceResult {
    * rows fall back to the current seat holders; always null for reserves.
    */
   teamId?: string | null;
+  /**
+   * Starting-grid position from the qualifying session. Null when the race
+   * has no quali data (legacy dates). Positions Gained = grid − finish.
+   */
+  gridPosition?: number | null;
 }
 
 export interface DotdAward {
