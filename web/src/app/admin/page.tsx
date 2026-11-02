@@ -12,6 +12,16 @@ const CARDS = [
     desc: "Edita o elimina fechas ya publicadas: posiciones, suplentes y DOTD.",
   },
   {
+    href: "/admin/debrief",
+    title: "✍ Debrief",
+    desc: "Genera la crónica de la fecha (quali vs carrera, campeonato, VR), revisala y publicala en /debrief.",
+  },
+  {
+    href: "/admin/resumen",
+    title: "🎬 Resumen video",
+    desc: "Video 1080×1350: ganador, podio, resultados, standings de pilotos y constructores. Grabalo en el browser.",
+  },
+  {
     href: "/admin/dotd",
     title: "🗳 Votación DOTD",
     desc: "Crea la votación con nominados y razones; la gente vota en /votar y aplicas el ganador.",

@@ -65,6 +65,7 @@ export default function RaceDayPage() {
   const [teams, setTeams] = useState<TeamOpt[]>([]);
 
   const [step, setStep] = useState(0);
+  const [publishedRaceId, setPublishedRaceId] = useState<string | null>(null);
   const [date, setDate] = useState("");
   const [monthLabel, setMonthLabel] = useState("");
   const [isOfficial, setIsOfficial] = useState(true);
@@ -373,6 +374,7 @@ export default function RaceDayPage() {
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error);
+      setPublishedRaceId(data.raceId ?? null);
       setMsg({ kind: "ok", text: "✅ Fecha publicada. Los standings ya están actualizados." });
       setStep(4);
     } catch (e) {
@@ -782,6 +784,16 @@ export default function RaceDayPage() {
             Standings, Vuelta Rápida y DOTD ya están actualizados en la página
             pública. No hay que correr ningún script.
           </p>
+          {publishedRaceId && (
+            <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 20, flexWrap: "wrap" }}>
+              <a className="admin-btn" href={`/admin/debrief?race=${publishedRaceId}`}>
+                Generar Debrief
+              </a>
+              <a className="admin-btn secondary" href={`/admin/resumen?race=${publishedRaceId}`}>
+                Video resumen
+              </a>
+            </div>
+          )}
         </div>
       )}
     </div>

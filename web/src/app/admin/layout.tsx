@@ -7,6 +7,8 @@ const NAV = [
   ["/admin", "Inicio"],
   ["/admin/race-day", "Fecha de Carrera"],
   ["/admin/races", "Carreras"],
+  ["/admin/debrief", "Debrief"],
+  ["/admin/resumen", "Resumen"],
   ["/admin/dotd", "Votación DOTD"],
   ["/admin/practice", "Tiempos de Práctica"],
   ["/admin/drivers", "Pilotos"],

@@ -24,7 +24,7 @@ import {
   TeamStandingRow,
 } from "@/lib/scoring/types";
 
-import { computeVueltaRapida, type VueltaRapidaRow } from "@/lib/vuelta-rapida";
+import { computeVueltaRapida, type LapTimeInput, type VueltaRapidaRow } from "@/lib/vuelta-rapida";
 import { normalizeStartTime } from "@/lib/race-datetime";
 export { TRACK_RESET_DATE, type VueltaRapidaRow } from "@/lib/vuelta-rapida";
 
@@ -80,6 +80,14 @@ interface LapTimeRow {
   driver_id: string;
   session_date: string;
   best_time: number;
+}
+
+export async function loadLapTimes(): Promise<LapTimeInput[]> {
+  const { data, error } = await db()
+    .from("lap_times")
+    .select("driver_id, session_date, best_time");
+  if (error) throw new Error(`Supabase: ${error.message}`);
+  return (data ?? []) as LapTimeInput[];
 }
 
 export async function loadSiteData(): Promise<SiteData> {

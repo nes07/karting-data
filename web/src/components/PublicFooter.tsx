@@ -15,6 +15,7 @@ const NAV_COLUMNS = [
     links: [
       { href: "/vuelta-rapida", label: "Vuelta Rápida" },
       { href: "/resultados", label: "Resultados" },
+      { href: "/debrief", label: "Debrief" },
       { href: "/dotd", label: "DOTD" },
       { href: "/penalizaciones", label: "Penalizaciones" },
     ],

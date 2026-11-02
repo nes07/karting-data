@@ -20,6 +20,12 @@ const CARDS = [
     subtitle: "Clasificaciones por fecha",
   },
   {
+    href: "/debrief",
+    icon: "✍",
+    title: "Debrief",
+    subtitle: "Crónica de cada fecha",
+  },
+  {
     href: "/pilotos",
     icon: "👤",
     title: "Pilotos",

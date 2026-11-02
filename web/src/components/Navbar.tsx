@@ -14,6 +14,7 @@ const MAIN_LINKS = [
 const MORE_LINKS = [
   ["/pilotos", "Pilotos"],
   ["/equipos", "Equipos"],
+  ["/debrief", "Debrief"],
   ["/dotd", "DOTD"],
   ["/penalizaciones", "Penalizaciones"],
   ["/trazado", "Trazado"],

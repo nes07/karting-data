@@ -7,6 +7,7 @@ export const PUBLIC_CACHE_PATHS = [
   "/standings/pilotos",
   "/standings/equipos",
   "/resultados",
+  "/debrief",
 ] as const;
 
 export function revalidatePublicSite() {

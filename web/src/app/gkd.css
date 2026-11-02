@@ -2502,3 +2502,104 @@ button { cursor: pointer; border: none; background: none; }
   backdrop-filter: blur(4px);
 }
 .results-toolbar .share-wrap { flex-shrink: 0; }
+
+/* ── Debrief ── */
+.debrief-list {
+  display: grid;
+  gap: 16px;
+}
+.debrief-card {
+  display: block;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px 28px;
+  transition: border-color 0.15s;
+}
+.debrief-card:hover { border-color: var(--red); }
+.debrief-card h2 {
+  font-family: var(--font-head);
+  font-size: 1.15rem;
+  letter-spacing: 0.04em;
+  margin: 10px 0 8px;
+}
+.debrief-card p {
+  color: var(--gray-light);
+  font-size: 0.95rem;
+}
+.debrief-card-date {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.debrief-empty { color: var(--gray); }
+.debrief-article {
+  max-width: 760px;
+  margin: 0 auto;
+}
+.debrief-kicker {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--red);
+  margin-bottom: 12px;
+}
+.debrief-article h1 {
+  font-family: var(--font-head);
+  font-size: clamp(1.6rem, 3.5vw, 2.3rem);
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  margin-bottom: 16px;
+}
+.debrief-lede {
+  font-size: 1.1rem;
+  color: var(--gray-light);
+  margin-bottom: 28px;
+}
+.debrief-article h2 {
+  font-family: var(--font-head);
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+  margin: 32px 0 12px;
+}
+.debrief-article p {
+  color: var(--gray-light);
+  font-size: 1.02rem;
+  line-height: 1.75;
+  margin-bottom: 12px;
+}
+.debrief-photos {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin: 8px 0 28px;
+}
+.debrief-photo {
+  flex: 0 0 auto;
+  width: 112px;
+}
+.debrief-photo img {
+  width: 112px;
+  height: 112px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+.debrief-photo figcaption {
+  font-size: 0.72rem;
+  text-align: center;
+  margin-top: 6px;
+  color: var(--gray);
+  letter-spacing: 0.04em;
+}
+.admin-input textarea,
+textarea.admin-input {
+  min-height: 96px;
+  resize: vertical;
+}
