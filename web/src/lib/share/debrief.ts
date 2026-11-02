@@ -16,7 +16,7 @@ export interface DebriefShare {
   people: DebriefSharePerson[];
 }
 
-const MAX_PEOPLE = 4;
+const MAX_PEOPLE = 8;
 const MAX_EXCERPT = 220;
 
 function clip(text: string, max: number): string {

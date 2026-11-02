@@ -567,7 +567,7 @@ export function DebriefArticleView({
               {item.monthLabel} · {formatLongDate(item.date)}
             </p>
             <ShareButton
-              endpoint={`/api/share/debrief?date=${item.date}`}
+              endpoint={`/api/share/debrief?date=${item.date}&v=8`}
               filename={`gkd-debrief-${item.date}`}
               title={item.title}
             />

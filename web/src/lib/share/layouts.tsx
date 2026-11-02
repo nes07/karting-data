@@ -1121,17 +1121,31 @@ function debriefTitleSize(title: string, format: ShareFormat): number {
   return 54;
 }
 
+function debriefRows<T>(items: T[]): T[][] {
+  const perRow = items.length > 4 ? 4 : Math.max(items.length, 1);
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += perRow) rows.push(items.slice(i, i + perRow));
+  return rows;
+}
+
+function debriefNameSize(alias: string, cardW: number): number {
+  const cap = cardW < 200 ? 18 : 24;
+  const fit = Math.floor(cardW / (alias.length * 0.9));
+  return Math.max(13, Math.min(cap, fit));
+}
+
 export function DebriefImage({ data, format }: { data: DebriefShare; format: ShareFormat }) {
   const { width, height } = SHARE_SIZES[format];
   const inner = width - 112;
-  const gap = 16;
-  const maxH = format === "story" ? 640 : 360;
+  const gap = 14;
   const count = data.people.length;
+  const perRow = count > 4 ? 4 : Math.max(count, 1);
+  const maxH = format === "story" ? (count > 4 ? 440 : 640) : count > 4 ? 260 : 360;
   const fitted =
-    count > 0 ? Math.floor((inner - gap * (count - 1)) / count) : Math.round(maxH * 0.75);
+    count > 0 ? Math.floor((inner - gap * (perRow - 1)) / perRow) : Math.round(maxH * 0.75);
   const cardW = Math.min(Math.round(maxH * 0.75), fitted);
   const photoH = Math.round((cardW * 4) / 3);
-  const nameSize = cardW < 220 ? 20 : 26;
+  const rows = debriefRows(data.people);
 
   return (
     <Frame width={width} height={height}>
@@ -1184,40 +1198,47 @@ export function DebriefImage({ data, format }: { data: DebriefShare; format: Sha
 
       <div style={{ display: "flex", flexDirection: "column", marginTop: "auto" }}>
         {count > 0 ? (
-          <div style={{ display: "flex", justifyContent: "center", gap }}>
-            {data.people.map((person) => (
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            {rows.map((row) => (
               <div
-                key={person.alias}
-                style={{ display: "flex", flexDirection: "column", width: cardW }}
+                key={row.map((person) => person.alias).join("-")}
+                style={{ display: "flex", justifyContent: "center", gap }}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={person.photo}
-                  alt={person.alias}
-                  width={cardW}
-                  height={photoH}
-                  style={{
-                    width: cardW,
-                    height: photoH,
-                    objectFit: "cover",
-                    objectPosition: "center 18%",
-                    borderRadius: 22,
-                  }}
-                />
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "center",
-                    fontFamily: HEAD,
-                    fontSize: nameSize,
-                    fontWeight: 700,
-                    color: C.white,
-                    letterSpacing: 1,
-                    marginTop: 14,
-                  }}
-                >
-                  {person.alias}
-                </div>
+                {row.map((person) => (
+                  <div
+                    key={person.alias}
+                    style={{ display: "flex", flexDirection: "column", width: cardW }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={person.photo}
+                      alt={person.alias}
+                      width={cardW}
+                      height={photoH}
+                      style={{
+                        width: cardW,
+                        height: photoH,
+                        objectFit: "cover",
+                        objectPosition: "center 18%",
+                        borderRadius: 18,
+                      }}
+                    />
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "center",
+                        fontFamily: HEAD,
+                        fontSize: debriefNameSize(person.alias, cardW),
+                        fontWeight: 700,
+                        color: C.white,
+                        letterSpacing: 1,
+                        marginTop: 10,
+                      }}
+                    >
+                      {person.alias}
+                    </div>
+                  </div>
+                ))}
               </div>
             ))}
           </div>

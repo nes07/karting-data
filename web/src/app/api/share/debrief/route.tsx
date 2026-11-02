@@ -33,9 +33,10 @@ export async function GET(request: Request) {
     ),
     url.origin
   );
-  const aliases = item.featured.length
-    ? item.featured
-    : item.body.sections.flatMap((s) => s.mentions);
+  const aliases = [
+    ...item.featured,
+    ...item.body.sections.flatMap((s) => s.mentions),
+  ];
   const share = buildDebriefShare({
     title: item.title,
     excerpt: item.excerpt,
