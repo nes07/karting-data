@@ -91,7 +91,9 @@ function ResultsTable({ rows }: { rows: ResultRow[] }) {
             <th>Pos</th>
             <th>Piloto</th>
             <th>Escudería</th>
-            <th title="Posiciones ganadas vs la grilla de qualifying">POS +/-</th>
+            <th title="Positions gained: posición de qualifying menos la posición de llegada">
+              Pos. ganadas
+            </th>
             <th>Pts</th>
           </tr>
         </thead>

@@ -1053,7 +1053,7 @@ export function RoundImage({ round, format }: { round: RoundShare; format: Share
         labelHeader="PILOTO"
         compact={compact}
         showVar
-        varHeader="+/-"
+        varHeader="GANADAS"
         extraHeader="PTS"
       />
       <Footer />

@@ -613,7 +613,7 @@ export default function RaceDayPage() {
                     <th title="Posición de largada (qualifying). Editable si el encargado se equivocó.">
                       Grilla
                     </th>
-                    <th>POS +/-</th>
+                    <th title="Positions gained: grilla menos llegada">Pos. ganadas</th>
                     <th>Piloto</th>
                     <th title="No terminó la carrera: suma participación pero no puntos por posición">
                       DNF
