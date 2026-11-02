@@ -153,16 +153,6 @@ function Editor() {
     }
   }
 
-  function updateSection(i: number, field: "heading" | "paragraphs", value: string) {
-    if (!article) return;
-    const sections = article.sections.map((s, idx) => {
-      if (idx !== i) return s;
-      if (field === "heading") return { ...s, heading: value };
-      return { ...s, paragraphs: value.split("\n").filter(Boolean) };
-    });
-    setArticle({ ...article, sections });
-  }
-
   const race = races.find((r) => r.id === raceId);
   const winnerLine = facts
     ? [facts.F1.winner?.alias, facts.F2.winner?.alias].filter(Boolean).join(" / ")
@@ -173,8 +163,9 @@ function Editor() {
       <div className="admin-card">
         <h2>Debrief de la fecha</h2>
         <p style={{ color: "var(--gray)", marginBottom: 16 }}>
-          Artículo con los hechos de la carrera (quali vs carrera, campeonato,
-          VR, forma). {llm ? "Hay OPENAI_API_KEY: se usa el LLM." : "Sin API key: plantilla en español."} Revisá y publicá.
+          El sitio arma el debrief en tablas: resultado, remontadas, forma,
+          campeonato y VR. Acá editás el título y la bajada.
+          {llm ? " Hay OPENAI_API_KEY: el título sale del LLM." : " Sin API key: título de plantilla."}
         </p>
         {msg && <div className={`admin-msg ${msg.kind}`}>{msg.text}</div>}
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "end" }}>
@@ -226,23 +217,6 @@ function Editor() {
               onChange={(e) => setArticle({ ...article, excerpt: e.target.value })}
             />
           </div>
-          {article.sections.map((s, i) => (
-            <div key={i} className="admin-field">
-              <label>Sección {i + 1}</label>
-              <input
-                className="admin-input"
-                value={s.heading}
-                onChange={(e) => updateSection(i, "heading", e.target.value)}
-                style={{ marginBottom: 8 }}
-              />
-              <textarea
-                className="admin-input"
-                rows={5}
-                value={s.paragraphs.join("\n")}
-                onChange={(e) => updateSection(i, "paragraphs", e.target.value)}
-              />
-            </div>
-          ))}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button className="admin-btn secondary" disabled={loading} onClick={() => save("draft")}>
               Guardar borrador

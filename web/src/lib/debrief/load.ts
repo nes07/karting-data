@@ -3,6 +3,15 @@ import { loadLapTimes, loadSiteData } from "@/lib/data";
 import { buildDebriefFacts } from "./facts";
 import type { DebriefArticle, DebriefFacts } from "./types";
 
+export function asDebriefFacts(raw: unknown): DebriefFacts | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as DebriefFacts;
+  if (!o.F1 || !o.F2 || !o.vr) return null;
+  if (!Array.isArray(o.F1.results) || !Array.isArray(o.F2.results)) return null;
+  if (!Array.isArray(o.vr.big) || !Array.isArray(o.vr.small)) return null;
+  return o;
+}
+
 function anon() {
   return createSupabase(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,6 +27,7 @@ export interface PublishedDebrief {
   title: string;
   excerpt: string;
   body: DebriefArticle;
+  facts: DebriefFacts | null;
   featured: string[];
   publishedAt: string | null;
 }
@@ -57,7 +67,7 @@ export async function loadPublishedDebriefs(): Promise<PublishedDebrief[]> {
   const { data, error } = await anon()
     .from("debriefs")
     .select(
-      "id, race_id, title, excerpt, body, featured_aliases, published_at, races!inner(date, month_label)"
+      "id, race_id, title, excerpt, body, facts, featured_aliases, published_at, races!inner(date, month_label)"
     )
     .eq("status", "published");
   if (error || !data) return [];
@@ -73,6 +83,7 @@ export async function loadPublishedDebriefs(): Promise<PublishedDebrief[]> {
       title: d.title,
       excerpt: d.excerpt ?? "",
       body: d.body as DebriefArticle,
+      facts: asDebriefFacts(d.facts),
       featured: d.featured_aliases ?? [],
       publishedAt: d.published_at ?? null,
     });

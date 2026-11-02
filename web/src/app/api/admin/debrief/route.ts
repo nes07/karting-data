@@ -44,19 +44,25 @@ export async function POST(request: Request) {
 
   const { article, source } = await writeDebriefArticle(facts);
   const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("debriefs")
+    .select("status, published_at")
+    .eq("race_id", body.raceId)
+    .maybeSingle();
+  const stayPublished = existing?.status === "published";
   const { data, error } = await supabase
     .from("debriefs")
     .upsert(
       {
         race_id: body.raceId,
-        status: "draft",
+        status: stayPublished ? "published" : "draft",
         title: article.title,
         excerpt: article.excerpt,
         body: article,
         facts,
         featured_aliases: article.featured,
         generated_by: source,
-        published_at: null,
+        published_at: stayPublished ? existing?.published_at ?? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "race_id" }

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DebriefArticleView } from "@/components/DebriefView";
 import { loadPublishedDebriefByDate } from "@/lib/debrief/load";
-import { getDriverPhotos, getSiteData } from "@/lib/get-site";
+import { getDriverPhotos, getSiteData, getTeamPhotos } from "@/lib/get-site";
 
 export const dynamic = "force-dynamic";
 
@@ -25,12 +25,11 @@ export default async function DebriefDatePage({ params }: Props) {
   const item = await loadPublishedDebriefByDate(date);
   if (!item) notFound();
   const site = await getSiteData();
-  const photos = getDriverPhotos(site);
   return (
-    <section className="section page-shell">
-      <div className="container">
-        <DebriefArticleView item={item} photos={photos} />
-      </div>
-    </section>
+    <DebriefArticleView
+      item={item}
+      photos={getDriverPhotos(site)}
+      teamPhotos={getTeamPhotos(site)}
+    />
   );
 }

@@ -1,7 +1,21 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import type { ReactNode } from "react";
+import { CONSTRUCTOR_COLORS } from "@/lib/constants";
 import type { PublishedDebrief } from "@/lib/debrief/load";
-import { formatLongDate } from "./format";
+import type {
+  BattleFact,
+  CatFacts,
+  DebriefFacts,
+  FormFact,
+  ResultFact,
+  StandingFact,
+} from "@/lib/debrief/types";
+import {
+  formatPositionsGained,
+  positionsGainedClass,
+} from "@/lib/positions-gained";
+import { formatLongDate, rankBadgeClass, rowClass } from "./format";
 
 export function DebriefPhotoStrip({
   aliases,
@@ -35,36 +49,465 @@ export function DebriefCard({ item }: { item: PublishedDebrief }) {
   );
 }
 
-export function DebriefArticleView({
+const CAT_NAME = { F1: "F1 Moderna", F2: "F1 Clásica" } as const;
+
+function ptsLabel(n: number): string {
+  const rounded = Math.round(n * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+function driverPhoto(
+  alias: string | undefined,
+  embedded: string | null | undefined,
+  photos: Record<string, string>
+): string | null {
+  if (!alias) return null;
+  return photos[alias] ?? embedded ?? null;
+}
+
+function teamPhoto(
+  escuderia: string | undefined,
+  embedded: string | null | undefined,
+  photos: Record<string, string>
+): string | null {
+  if (!escuderia) return null;
+  return photos[escuderia] ?? embedded ?? null;
+}
+
+function Ghosts({ left, right }: { left: string | null; right: string | null }) {
+  const l = left ?? right;
+  const r = right ?? left;
+  if (!l || !r) return null;
+  return (
+    <div className="debrief-ghosts" aria-hidden="true">
+      <img className="debrief-ghost left" src={l} alt="" />
+      <img className="debrief-ghost right" src={r} alt="" />
+    </div>
+  );
+}
+
+function Block({
+  title,
+  left,
+  right,
+  children,
+}: {
+  title?: string;
+  left: string | null;
+  right: string | null;
+  children: ReactNode;
+}) {
+  return (
+    <section className="debrief-block">
+      <Ghosts left={left} right={right} />
+      <div className="debrief-block-inner">
+        {title ? <h2>{title}</h2> : null}
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function Escuderia({ name }: { name: string }) {
+  const c = CONSTRUCTOR_COLORS[name] ?? { bg: "#333", fg: "#fff" };
+  return (
+    <span className="constructor-badge" style={{ background: c.bg, color: c.fg }}>
+      {name}
+    </span>
+  );
+}
+
+function ResultTable({ rows }: { rows: ResultFact[] }) {
+  return (
+    <div className="standings-table-wrap">
+      <table className="standings-table">
+        <thead>
+          <tr>
+            <th>Pos</th>
+            <th>Piloto</th>
+            <th>Escudería</th>
+            <th>Grilla</th>
+            <th>Pos. ganadas</th>
+            <th>Tiempo</th>
+            <th>Pts</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={`${r.alias}-${r.pos}`} className={r.dnf ? "" : rowClass(r.pos)}>
+              <td>
+                {r.dnf ? (
+                  <span className="rank-badge dnf">DNF</span>
+                ) : (
+                  <span className={rankBadgeClass(r.pos)}>{r.pos}</span>
+                )}
+              </td>
+              <td className="pilot-cell">{r.alias}</td>
+              <td>
+                <Escuderia name={r.escuderia} />
+              </td>
+              <td className={r.grid == null ? "pos-cell" : "pos-cell has-value"}>
+                {r.grid == null ? "—" : `${r.grid}º`}
+              </td>
+              <td>
+                <span className={`pos-delta ${positionsGainedClass(r.gained)}`}>
+                  {formatPositionsGained(r.gained)}
+                </span>
+              </td>
+              <td className="pos-cell has-value">
+                {r.time == null ? "—" : r.time.toFixed(3)}
+              </td>
+              <td className="pts-total">{r.pts}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function NamedList({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: { key: string; name: string; detail: string; mark?: string; markClass?: string }[];
+}) {
+  if (!rows.length) return null;
+  return (
+    <div className="debrief-list-block">
+      <h3>{title}</h3>
+      <ul className="debrief-rows">
+        {rows.map((r) => (
+          <li key={r.key}>
+            <span className="debrief-row-name">{r.name}</span>
+            <span className="debrief-row-meta">
+              {r.mark ? (
+                <span className={`pos-delta ${r.markClass ?? ""}`}>{r.mark}</span>
+              ) : null}
+              <span>{r.detail}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function champMove(s: StandingFact): { text: string; cls: string } {
+  if (s.prevRank == null) return { text: "Nuevo", cls: "empty" };
+  const d = s.prevRank - s.rank;
+  if (d === 0) return { text: "=", cls: "flat" };
+  if (d > 0) return { text: `+${d}`, cls: "up" };
+  return { text: String(d), cls: "down" };
+}
+
+function StandingTable({
+  rows,
+  nameLabel,
+}: {
+  rows: StandingFact[];
+  nameLabel: string;
+}) {
+  return (
+    <div className="standings-table-wrap">
+      <table className="standings-table">
+        <thead>
+          <tr>
+            <th>Pos</th>
+            <th>{nameLabel}</th>
+            <th>Pts</th>
+            <th>Gap</th>
+            <th>Mov.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((s) => {
+            const move = champMove(s);
+            return (
+              <tr key={s.alias} className={rowClass(s.rank)}>
+                <td>
+                  <span className={rankBadgeClass(s.rank)}>{s.rank}</span>
+                </td>
+                <td className="pilot-cell">
+                  {nameLabel === "Escudería" ? <Escuderia name={s.alias} /> : s.alias}
+                </td>
+                <td className="pts-total">{ptsLabel(s.pts)}</td>
+                <td className="pos-cell has-value">
+                  {s.gapToLeader === 0 ? "—" : ptsLabel(s.gapToLeader)}
+                </td>
+                <td>
+                  <span className={`pos-delta ${move.cls}`}>{move.text}</span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function BattleList({ battles }: { battles: BattleFact[] }) {
+  if (!battles.length) return null;
+  return (
+    <ul className="debrief-battles">
+      {battles.slice(0, 3).map((b) => (
+        <li key={`${b.a}-${b.b}`}>
+          <span className="debrief-row-name">
+            {b.a}
+            <span className="debrief-vs"> vs </span>
+            {b.b}
+          </span>
+          <span className="debrief-row-meta">{b.note}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function CategoryBody({
+  cat,
+  photos,
+  teamPhotos,
+}: {
+  cat: CatFacts;
+  photos: Record<string, string>;
+  teamPhotos: Record<string, string>;
+}) {
+  if (!cat.winner) return null;
+  const name = CAT_NAME[cat.category];
+  const p2 = cat.podium[1] ?? cat.results[1];
+  const gainer = cat.gainers[0];
+  const loser = cat.losers[0];
+  const formPeople = [...cat.formUp, ...cat.formDown];
+  const showMoves = cat.gainers.length > 0 || cat.losers.length > 0;
+  const showForm = formPeople.length > 0;
+
+  return (
+    <>
+      <Block
+        title={`${name} — Resultado`}
+        left={driverPhoto(cat.winner.alias, cat.winner.photo, photos)}
+        right={driverPhoto(p2?.alias, p2?.photo, photos)}
+      >
+        <ResultTable rows={cat.results} />
+      </Block>
+
+      {showMoves ? (
+        <Block
+          title={`${name} — La tarde`}
+          left={driverPhoto(gainer?.alias ?? loser?.alias, gainer?.photo ?? loser?.photo, photos)}
+          right={driverPhoto(
+            loser?.alias ?? cat.gainers[1]?.alias,
+            loser?.photo ?? cat.gainers[1]?.photo,
+            photos
+          )}
+        >
+          <div className="debrief-split">
+            <NamedList
+              title="Remontaron"
+              rows={cat.gainers.slice(0, 5).map((r) => ({
+                key: r.alias,
+                name: r.alias,
+                mark: formatPositionsGained(r.gained),
+                markClass: "up",
+                detail: r.grid == null ? `P${r.pos}` : `${r.grid}º en grilla → P${r.pos}`,
+              }))}
+            />
+            <NamedList
+              title="Perdieron lugares"
+              rows={cat.losers.slice(0, 5).map((r) => ({
+                key: r.alias,
+                name: r.alias,
+                mark: formatPositionsGained(r.gained),
+                markClass: "down",
+                detail: r.grid == null ? `P${r.pos}` : `${r.grid}º en grilla → P${r.pos}`,
+              }))}
+            />
+          </div>
+        </Block>
+      ) : null}
+
+      {showForm ? (
+        <Block
+          title={`${name} — Forma`}
+          left={driverPhoto(formPeople[0]?.alias, formPeople[0]?.photo, photos)}
+          right={driverPhoto(
+            formPeople[1]?.alias ?? formPeople[0]?.alias,
+            formPeople[1]?.photo ?? formPeople[0]?.photo,
+            photos
+          )}
+        >
+          <div className="debrief-split">
+            <NamedList title="Sobre su media" rows={formPeopleRows(cat.formUp)} />
+            <NamedList title="Bajo su media" rows={formPeopleRows(cat.formDown)} />
+          </div>
+        </Block>
+      ) : null}
+
+      {cat.drivers.length ? (
+        <Block
+          title={`${name} — Pilotos`}
+          left={driverPhoto(cat.drivers[0]?.alias, cat.drivers[0]?.photo, photos)}
+          right={driverPhoto(cat.drivers[1]?.alias, cat.drivers[1]?.photo, photos)}
+        >
+          <StandingTable rows={cat.drivers.slice(0, 10)} nameLabel="Piloto" />
+          <BattleList battles={cat.battles} />
+        </Block>
+      ) : null}
+
+      {cat.teams.length ? (
+        <Block
+          title={`${name} — Constructores`}
+          left={teamPhoto(cat.teams[0]?.alias, cat.teams[0]?.photo, teamPhotos)}
+          right={teamPhoto(cat.teams[1]?.alias, cat.teams[1]?.photo, teamPhotos)}
+        >
+          <StandingTable rows={cat.teams.slice(0, 8)} nameLabel="Escudería" />
+          <BattleList battles={cat.teamBattles} />
+        </Block>
+      ) : null}
+    </>
+  );
+}
+
+function formPeopleRows(rows: FormFact[]) {
+  return rows.slice(0, 4).map((f) => ({
+    key: f.alias,
+    name: f.alias,
+    mark: f.delta > 0 ? `+${ptsLabel(f.delta)}` : ptsLabel(f.delta),
+    markClass: f.delta > 0 ? "up" : "down",
+    detail: `P${f.thisPos} · media ${ptsLabel(f.avgPos)} en ${f.racesBefore} fechas`,
+  }));
+}
+
+function FactsBody({
+  facts,
+  photos,
+  teamPhotos,
+}: {
+  facts: DebriefFacts;
+  photos: Record<string, string>;
+  teamPhotos: Record<string, string>;
+}) {
+  const vr = [...facts.vr.big, ...facts.vr.small];
+  return (
+    <>
+      <CategoryBody cat={facts.F1} photos={photos} teamPhotos={teamPhotos} />
+      <CategoryBody cat={facts.F2} photos={photos} teamPhotos={teamPhotos} />
+      {vr.length ? (
+        <Block
+          title="Vuelta Rápida"
+          left={driverPhoto(vr[0]?.alias, vr[0]?.photo, photos)}
+          right={driverPhoto(vr[1]?.alias ?? vr[0]?.alias, vr[1]?.photo ?? vr[0]?.photo, photos)}
+        >
+          <div className="standings-table-wrap">
+            <table className="standings-table">
+              <thead>
+                <tr>
+                  <th>Piloto</th>
+                  <th>Desde</th>
+                  <th>Hasta</th>
+                  <th>Salto</th>
+                  <th>Tiempo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vr.slice(0, 12).map((m) => {
+                  const delta = m.deltaRank;
+                  const cls =
+                    delta == null ? "empty" : delta > 0 ? "up" : delta < 0 ? "down" : "flat";
+                  const mark =
+                    delta == null ? "Debut" : delta > 0 ? `+${delta}` : delta === 0 ? "=" : String(delta);
+                  return (
+                    <tr key={`${m.alias}-${m.to}`}>
+                      <td className="pilot-cell">{m.alias}</td>
+                      <td className="pos-cell has-value">{m.from == null ? "—" : `P${m.from}`}</td>
+                      <td className="pos-cell has-value">P{m.to}</td>
+                      <td>
+                        <span className={`pos-delta ${cls}`}>{mark}</span>
+                      </td>
+                      <td className="pts-total">{m.time.toFixed(3)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Block>
+      ) : null}
+    </>
+  );
+}
+
+function ProseBody({
   item,
   photos,
 }: {
   item: PublishedDebrief;
   photos: Record<string, string>;
 }) {
+  return (
+    <>
+      {item.body.sections.map((s) => {
+        const mentioned = s.mentions.filter((a) => photos[a]);
+        return (
+          <Block
+            key={s.heading}
+            title={s.heading}
+            left={mentioned[0] ? photos[mentioned[0]] : null}
+            right={mentioned[1] ? photos[mentioned[1]] : photos[mentioned[0]] ?? null}
+          >
+            {s.paragraphs.map((p) => (
+              <p key={p.slice(0, 48)}>{p}</p>
+            ))}
+          </Block>
+        );
+      })}
+    </>
+  );
+}
+
+export function DebriefArticleView({
+  item,
+  photos,
+  teamPhotos,
+}: {
+  item: PublishedDebrief;
+  photos: Record<string, string>;
+  teamPhotos: Record<string, string>;
+}) {
   const mentions = [
     ...item.featured,
     ...item.body.sections.flatMap((s) => s.mentions),
   ];
   const unique = [...new Set(mentions)];
+  const headLeft = photos[item.featured[0] ?? ""] ?? photos[unique[0] ?? ""] ?? null;
+  const headRight =
+    photos[item.featured[1] ?? ""] ??
+    photos[unique[1] ?? ""] ??
+    headLeft;
+
   return (
-    <article className="debrief-article">
-      <p className="debrief-kicker">
-        <Link href="/debrief">Debrief</Link>
-        {" · "}
-        {item.monthLabel} · {formatLongDate(item.date)}
-      </p>
-      <h1>{item.title}</h1>
-      {item.excerpt && <p className="debrief-lede">{item.excerpt}</p>}
-      <DebriefPhotoStrip aliases={unique} photos={photos} />
-      {item.body.sections.map((s) => (
-        <section key={s.heading}>
-          <h2>{s.heading}</h2>
-          {s.paragraphs.map((p) => (
-            <p key={p.slice(0, 40)}>{p}</p>
-          ))}
-        </section>
-      ))}
+    <article className="debrief-page">
+      <header className="debrief-block">
+        <Ghosts left={headLeft} right={headRight} />
+        <div className="debrief-block-inner debrief-head">
+          <p className="debrief-kicker">
+            <Link href="/debrief">Debrief</Link>
+            {" · "}
+            {item.monthLabel} · {formatLongDate(item.date)}
+          </p>
+          <h1>{item.title}</h1>
+          {item.excerpt ? <p className="debrief-lede">{item.excerpt}</p> : null}
+          <DebriefPhotoStrip aliases={unique} photos={photos} />
+        </div>
+      </header>
+      {item.facts ? (
+        <FactsBody facts={item.facts} photos={photos} teamPhotos={teamPhotos} />
+      ) : (
+        <ProseBody item={item} photos={photos} />
+      )}
     </article>
   );
 }
